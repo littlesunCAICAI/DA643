@@ -1,0 +1,58 @@
+,row_names,MovieID,MovieName,FriendID,FriendName,FriendRating
+1,1,1,The Fate of the Furious,1,Ming,2
+2,8,1,The Fate of the Furious,2,Hao,
+3,15,1,The Fate of the Furious,3,Alison,4.5
+4,22,1,The Fate of the Furious,4,Eran,3
+5,29,1,The Fate of the Furious,5,Orshi,2.5
+6,36,1,The Fate of the Furious,6,Tito,
+7,43,1,The Fate of the Furious,7,Mike,2
+8,50,1,The Fate of the Furious,8,Kate,
+9,2,2,Star Wars: The Last Jedi,1,Ming,
+10,9,2,Star Wars: The Last Jedi,2,Hao,4.5
+11,16,2,Star Wars: The Last Jedi,3,Alison,1.5
+12,23,2,Star Wars: The Last Jedi,4,Eran,1
+13,30,2,Star Wars: The Last Jedi,5,Orshi,2
+14,37,2,Star Wars: The Last Jedi,6,Tito,4
+15,44,2,Star Wars: The Last Jedi,7,Mike,5
+16,51,2,Star Wars: The Last Jedi,8,Kate,
+17,3,3,Guardians of the Galaxy Vol. ,1,Ming,4
+18,10,3,Guardians of the Galaxy Vol. ,2,Hao,3
+18,17,3,Guardians of the Galaxy Vol. ,3,Alison,2
+20,24,3,Guardians of the Galaxy Vol. ,4,Eran,
+21,31,3,Guardians of the Galaxy Vol. ,5,Orshi,1.5
+22,38,3,Guardians of the Galaxy Vol. ,6,Tito,4.5
+23,45,3,Guardians of the Galaxy Vol. ,7,Mike,3
+24,52,3,Guardians of the Galaxy Vol. ,8,Kate,
+25,4,4,Thor: Ragnarok,1,Ming,1.5
+26,11,4,Thor: Ragnarok,2,Hao,4
+27,18,4,Thor: Ragnarok,3,Alison,
+28,25,4,Thor: Ragnarok,4,Eran,2
+29,32,4,Thor: Ragnarok,5,Orshi,2
+30,39,4,Thor: Ragnarok,6,Tito,4
+31,46,4,Thor: Ragnarok,7,Mike,
+32,53,4,Thor: Ragnarok,8,Kate,
+33,5,5,Beauty and the Beast,1,Ming,4
+34,12,5,Beauty and the Beast,2,Hao,4
+35,19,5,Beauty and the Beast,3,Alison,5
+36,26,5,Beauty and the Beast,4,Eran,5
+37,33,5,Beauty and the Beast,5,Orshi,
+38,40,5,Beauty and the Beast,6,Tito,
+39,47,5,Beauty and the Beast,7,Mike,2
+40,54,5,Beauty and the Beast,8,Kate,5
+41,6,6,Logan,1,Ming,5
+42,13,6,Logan,2,Hao,1.5
+43,20,6,Logan,3,Alison,1
+44,27,6,Logan,4,Eran,1.5
+45,34,6,Logan,5,Orshi,
+46,41,6,Logan,6,Tito,4
+47,48,6,Logan,7,Mike,4
+48,55,6,Logan,8,Kate,
+49,7,7,The Good Dinosaur,1,Ming,
+50,14,7,The Good Dinosaur,2,Hao,5
+51,21,7,The Good Dinosaur,3,Alison,
+52,28,7,The Good Dinosaur,4,Eran,
+53,35,7,The Good Dinosaur,5,Orshi,
+54,42,7,The Good Dinosaur,6,Tito,
+55,49,7,The Good Dinosaur,7,Mike,2
+56,56,7,The Good Dinosaur,8,Kate,5
+

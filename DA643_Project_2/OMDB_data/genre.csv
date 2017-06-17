@@ -1,0 +1,25 @@
+,row_names,genres,title,genreID
+1,1,Action,The Fate of the Furious,1
+2,2,Crime,The Fate of the Furious,2
+3,3,Thriller,The Fate of the Furious,3
+4,4,Action,Star Wars: The Last Jedi,4
+5,5,Adventure,Star Wars: The Last Jedi,5
+6,6,Fantasy,Star Wars: The Last Jedi,6
+7,7,Action,Guardians of the Galaxy Vol. ,7
+8,8,Adventure,Guardians of the Galaxy Vol. ,8
+9,9,Sci-Fi,Guardians of the Galaxy Vol. ,9
+10,10,Action,Thor: Ragnarok,10
+11,11,Adventure,Thor: Ragnarok,11
+12,12,Fantasy,Thor: Ragnarok,12
+13,13,Family,Beauty and the Beast,13
+14,14,Fantasy,Beauty and the Beast,14
+15,15,Musical,Beauty and the Beast,15
+16,16,Action,Logan,16
+17,17,Drama,Logan,17
+18,18,Sci-Fi,Logan,18
+19,19,Animation,The Good Dinosaur,19
+20,20,Adventure ,The Good Dinosaur,20
+21,21,Comedy ,The Good Dinosaur,21
+22,22,Drama,The Good Dinosaur,22
+23,23,Family,The Good Dinosaur,23
+24,24,Fantasy,The Good Dinosaur,24
