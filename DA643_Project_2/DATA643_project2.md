@@ -3,9 +3,9 @@ DATA 643 Project 2 - Content-Based and Collaborative Filtering
 Yun Mai
 June 17, 2017
 
-The goal of this assignment is for you to try out different ways of implementing and configuring a recommender, and to evaluate your different approaches.
+In this project I will try out different ways of implementing and configuring a recommender, and to evaluate different approaches.
 
-For assignment 2, start with an existing dataset of user-item ratings, such as our toy books dataset, MovieLens, Jester \[<http://eigentaste.berkeley.edu/dataset/>\] or another dataset of your choosing. Implement at least two of these recommendation algorithms:
+I will use a movie ratings bdataset built for an assignment of ralational database to implement the following recommendation algorithms:
 
 . Content-Based Filtering
 
@@ -13,13 +13,51 @@ For assignment 2, start with an existing dataset of user-item ratings, such as o
 
 . Item-Item Collaborative Filtering
 
-As an example of implementing a Content-Based recommender, you could build item profiles for a subset of MovieLens movies from scraping <http://www.imdb.com/> or using the API at <https://www.omdbapi.com/> (which has very recently instituted a small monthly fee). A more challenging method would be to pull movie summaries or reviews and apply tf-idf and/or topic modeling.
+To build a Content-Based recommender, I will use genre as features for modeling. Because there are only 7 movies, I copy-pasted the storyline from IMDB in case tf-idf will be performed to do topic modeling.
 
-You should evaluate and compare different approaches, using different algorithms, normalization techniques, similarity methods, neighborhood sizes, etc. You don't need to be exhaustive-these are just some suggested possibilities.
+To build a callaborative filtering recommender, recommenderlab package will be used.
 
-You may use the course text's recommenderlab or any other library that you want.
+I will evaluate and compare the perfomance of item-based and user-based callaborative filtering approaches.
 
-Please provide at least one graph, and a textual summary of your findings and recommendations.
+Overview:
+
+Data
+
+1.  Content-Based Filtering
+
+    1.1 Feature Matrix
+
+        1.1.1 Binary Feature Matrix
+
+        1.1.2  Document Frequency (DF) and Inverse Document Frequency (IDF)
+
+        1.1.3 Total_atrributes
+
+        1.1.4 bianary rating matrix 
+
+    1.2 Normoalization
+
+    1.3 User Profile
+
+    1.4 Weighted Scores
+
+    1.5 Prediction
+
+2.  Collaborative Filtering
+
+    2.1 Coercion the Data to Rating Matrices
+
+    2.2 Normalization
+
+    2.3 IBCF: Item-Based Collaborative Filtering
+
+    2.4 UBCF: User-Based Collaborative Filtering
+
+    2.5 Evaluation of Predicted Ratings
+
+    2.6 Evaluation of a top-N Recommender Algorithm
+
+Set up working environment.
 
 ``` r
 install.packages("R.matlab")
@@ -49,37 +87,37 @@ url_genre <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Pr
 kable(head(movie <- read.csv(url),n=2))
 ```
 
-|    X|  row\_names| Title                    |  Year| imdbID    | genre                      | actor                                                    | country                    | director     | writer                                                            |  MovieID|  box\_office| storyline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | X.1                                                                                                                                                             |
-|----:|-----------:|:-------------------------|-----:|:----------|:---------------------------|:---------------------------------------------------------|:---------------------------|:-------------|:------------------------------------------------------------------|--------:|------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-|    1|           1| The Fate of the Furious  |  2017| tt4630562 | Action,Crime,Thriller      | Scott Eastwood,Charlize Theron,Dwayne Johnson,Vin Diesel | USA,France,Canada,UK,Samoa | F. Gary Gray | Chris Morgan,Gary Scott Thompson (based on characters created by) |        1|    224507635| Now that Dom and Letty are on their honeymoon and Brian and Mia have retired from the game-and the rest of the crew has been exonerated-the globetrotting team has found a semblance of a normal life. But when a mysterious woman seduces Dom into the world of crime he can't seem to escape and a betrayal of those closest to him they will face trials that will test them as never before. From the shores of Cuba and the streets of New York City to the icy plains off the arctic Barents Sea. | the elite force will crisscross the globe to stop an anarchist from unleashing chaos on the world's stage... and to bring home the man who made them a family.? |
-|    2|           2| Star Wars: The Last Jedi |  2017| tt2527336 | Action, Adventure, Fantasy | Tom Hardy, Daisy Ridley, Adam Driver, Mark Hamill        | USA                        | Rian Johnson | Rian Johnson (screenplay), George Lucas (characters)              |        2|           NA| Having taken her first steps into a larger world in Star Wars: The Force Awakens (2015), Rey continues her epic journey with Finn, Poe and Luke Skywalker in the next chapter of the saga.                                                                                                                                                                                                                                                                                                              |                                                                                                                                                                 |
+|  row\_names| Title                    |  Year| imdbID    | genre                      | actor                                                    | country                    | director     | writer                                                            |  MovieID|  box\_office| storyline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|-----------:|:-------------------------|-----:|:----------|:---------------------------|:---------------------------------------------------------|:---------------------------|:-------------|:------------------------------------------------------------------|--------:|------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|           1| The Fate of the Furious  |  2017| tt4630562 | Action,Crime,Thriller      | Scott Eastwood,Charlize Theron,Dwayne Johnson,Vin Diesel | USA,France,Canada,UK,Samoa | F. Gary Gray | Chris Morgan,Gary Scott Thompson (based on characters created by) |        1|    224507635| Now that Dom and Letty are on their honeymoon and Brian and Mia have retired from the game-and the rest of the crew has been exonerated-the globetrotting team has found a semblance of a normal life. But when a mysterious woman seduces Dom into the world of crime he can't seem to escape and a betrayal of those closest to him, they will face trials that will test them as never before. From the shores of Cuba and the streets of New York City to the icy plains off the arctic Barents Sea, the elite force will crisscross the globe to stop an anarchist from unleashing chaos on the world's stage... and to bring home the man who made them a family. |
+|           2| Star Wars: The Last Jedi |  2017| tt2527336 | Action, Adventure, Fantasy | Tom Hardy, Daisy Ridley, Adam Driver, Mark Hamill        | USA                        | Rian Johnson | Rian Johnson (screenplay), George Lucas (characters)              |        2|           NA| Having taken her first steps into a larger world in Star Wars: The Force Awakens (2015), Rey continues her epic journey with Finn, Poe and Luke Skywalker in the next chapter of the saga.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ``` r
 kable(head(rating <- read.csv(url_rating),n=2))
 ```
 
-|    X|  row\_names|  MovieID| MovieName               |  FriendID| FriendName |  FriendRating|
-|----:|-----------:|--------:|:------------------------|---------:|:-----------|-------------:|
-|    1|           1|        1| The Fate of the Furious |         1| Ming       |             2|
-|    2|           8|        1| The Fate of the Furious |         2| Hao        |            NA|
+|  row\_names|  MovieID| MovieName               |  FriendID| FriendName |  FriendRating|
+|-----------:|--------:|:------------------------|---------:|:-----------|-------------:|
+|           1|        1| The Fate of the Furious |         1| Ming       |             2|
+|           8|        1| The Fate of the Furious |         2| Hao        |            NA|
 
 ``` r
 kable(head(friend <- read.csv(url_friend),n=2))
 ```
 
-|    X|  row\_names|  FriendsID| FriendsName |
-|----:|-----------:|----------:|:------------|
-|    1|           1|          1| Ming        |
-|    2|           2|          2| Hao         |
+|  row\_names|  FriendsID| FriendsName |
+|-----------:|----------:|:------------|
+|           1|          1| Ming        |
+|           2|          2| Hao         |
 
 ``` r
 kable(head(genre <- read.csv(url_genre),n=2))
 ```
 
-|    X|  row\_names| genres | title                   |  genreID|
-|----:|-----------:|:-------|:------------------------|--------:|
-|    1|           1| Action | The Fate of the Furious |        1|
-|    2|           2| Crime  | The Fate of the Furious |        2|
+|  row\_names| genres | title                   |  genreID|
+|-----------:|:-------|:------------------------|--------:|
+|           1| Action | The Fate of the Furious |        1|
+|           2| Crime  | The Fate of the Furious |        2|
 
 ``` r
 rating <- merge(rating,friend, by.x = "FriendID", by.y = "FriendsID")
@@ -103,7 +141,7 @@ Movie genre will be used as the fesatures to build the content-based filtering. 
 genre_2 <- genre[c("genres","genreID")]
 genre_2 <- genre_2[!duplicated(genre_2$genres),]
 genre_2$genreID <- seq(1:nrow(genre_2))
-genre_3 <- subset(genre, select = -c(X,row_names,genreID))
+genre_3 <- subset(genre, select = -c(row_names,genreID))
 genre_4 <- merge(genre_2,genre_3, by.x = "genres", by.y = "genres")
 genre_5 <- spread(genre_4, genreID, genres)
 colnames(genre_5) <- c('title',as.character(genre_2$genres))
@@ -372,6 +410,8 @@ binary_weight_df
     ## Animation        0.34500983     0.00000000
     ## Comedy           0.34500983     0.00000000
 
+#### 1.5 Prediction
+
 Then the dot product of the vector of the weighted scores of each movie and the vector of user-profile (binary\_rating\_matrix\_nor) for a user tell us the probability that the user will like a particular movie.
 
 ``` r
@@ -553,30 +593,6 @@ cf_rating_matrix[6:8,]
 
 ``` r
 # similarity table
-getRatingMatrix(cf_train)
-```
-
-    ## 5 x 7 sparse Matrix of class "dgCMatrix"
-    ##   Beauty and the Beast Guardians of the Galaxy Vol.  Logan
-    ## 1                    5                             2   1.0
-    ## 2                    5                             .   1.5
-    ## 3                    4                             3   1.5
-    ## 4                    5                             .   .  
-    ## 5                    2                             3   4.0
-    ##   Star Wars: The Last Jedi The Fate of the Furious The Good Dinosaur
-    ## 1                      1.5                     4.5                 .
-    ## 2                      1.0                     3.0                 .
-    ## 3                      4.5                     .                   5
-    ## 4                      .                       .                   5
-    ## 5                      5.0                     2.0                 2
-    ##   Thor: Ragnarok
-    ## 1              .
-    ## 2              2
-    ## 3              4
-    ## 4              .
-    ## 5              .
-
-``` r
 (cos_sim <- similarity(cf_train, method = 'cosine', which = 'item'))
 ```
 
@@ -598,11 +614,11 @@ From the similarity table we can find the most similar movie for each movie, for
 
 ``` r
 # Creation of the model
-cf_item_r <- Recommender(cf_train, method = "UBCF")
+cf_user_r <- Recommender(cf_train, method = "UBCF")
 
 # Making predictions
-cf_item_recom <- predict(cf_item_r, cf_test, type="ratings")
-as(cf_item_recom, "matrix")
+cf_user_recom <- predict(cf_user_r, cf_test, type="ratings")
+as(cf_user_recom, "matrix")
 ```
 
     ##   Beauty and the Beast Guardians of the Galaxy Vol.  Logan
@@ -619,31 +635,11 @@ as(cf_item_recom, "matrix")
     ## 8             NA
 
 ``` r
-# similarity table
-getRatingMatrix(cf_train)
+cf_recom_list <- as(cf_user_recom, "list") #convert recommenderlab object to readable list
 ```
 
-    ## 5 x 7 sparse Matrix of class "dgCMatrix"
-    ##   Beauty and the Beast Guardians of the Galaxy Vol.  Logan
-    ## 1                    5                             2   1.0
-    ## 2                    5                             .   1.5
-    ## 3                    4                             3   1.5
-    ## 4                    5                             .   .  
-    ## 5                    2                             3   4.0
-    ##   Star Wars: The Last Jedi The Fate of the Furious The Good Dinosaur
-    ## 1                      1.5                     4.5                 .
-    ## 2                      1.0                     3.0                 .
-    ## 3                      4.5                     .                   5
-    ## 4                      .                       .                   5
-    ## 5                      5.0                     2.0                 2
-    ##   Thor: Ragnarok
-    ## 1              .
-    ## 2              2
-    ## 3              4
-    ## 4              .
-    ## 5              .
-
 ``` r
+# similarity table
 (cos_sim <- similarity(cf_train, method = 'cosine', which = 'user'))
 ```
 
@@ -659,7 +655,7 @@ image(as.matrix(cos_sim), main = "Item Similarity",xlab = "Friend", ylab = "Frie
 
 ![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-19-1.png)
 
-#### **3 Evaluation of Predicted Ratings**
+#### 2.5 Evaluation of Predicted Ratings
 
 ``` r
 cf_itm_e <- evaluationScheme(cf_rating, method="split", train=0.8, given=2, goodRating = 2.5)
@@ -671,59 +667,50 @@ p2 <- predict(r2, getData(cf_itm_e, "known"), type="ratings")
 ```
 
     ##          RMSE      MSE      MAE
-    ## UBCF 1.931651 3.731277 1.676339
-    ## IBCF      NaN      NaN      NaN
+    ## UBCF 2.229983 4.972823 2.151479
+    ## IBCF 2.639439 6.966640 2.511388
 
 Item-base callborative filtering performed better than user-base callborative filtering as RMSE of IBSF is lower than that of UBCF.
 
-#### **Evaluation of a top-N Recommender Algorithm**
+#### 2.6 Evaluation of a top-N Recommender Algorithm
 
 ``` r
-set.seed(2017)
+set.seed(2002)
 scheme <- evaluationScheme(cf_train, method="cross", k=4, given=2,goodRating=2.5)
 results <- evaluate(scheme, method="IBCF", type = "topNList")
 ```
 
     ## IBCF run fold/sample [model time/prediction time]
-    ##   1  [0sec/0.01sec] 
-    ##   2  [0.02sec/0.02sec] 
-    ##   3  [0.02sec/0sec] 
-    ##   4  [0.01sec/0.02sec]
+    ##   1  [0.02sec/0.01sec] 
+    ##   2  [0sec/0.01sec] 
+    ##   3  [0sec/0sec] 
+    ##   4  [0sec/0.02sec]
 
 ``` r
-getConfusionMatrix(results)[[1]]
-```
-
-    ##     TP  FP  FN  TN precision recall   TPR       FPR
-    ## 1  0.5 0.5 2.5 1.5 0.5000000  0.250 0.250 0.5000000
-    ## 2  1.0 1.0 2.0 1.0 0.5000000  0.375 0.375 0.6666667
-    ## 3  2.0 1.0 1.0 1.0 0.6666667  0.750 0.750 0.6666667
-    ## 4  2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-    ## 5  2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-    ## 6  2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-    ## 7  2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-    ## 8  2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-    ## 9  2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-    ## 10 2.5 1.5 0.5 0.5 0.6250000  0.875 0.875 0.8333333
-
-``` r
+rslt <- getConfusionMatrix(results)[[1]]
 avg(results)
 ```
 
-    ##       TP    FP    FN    TN precision  recall     TPR       FPR
-    ## 1  0.250 0.625 1.500 2.625 0.2500000 0.12500 0.12500 0.2708333
-    ## 2  0.750 1.000 1.000 2.250 0.4375000 0.53125 0.53125 0.3958333
-    ## 3  1.125 1.500 0.625 1.750 0.4166667 0.68750 0.68750 0.5416667
-    ## 4  1.375 2.125 0.375 1.125 0.4062500 0.84375 0.84375 0.7291667
-    ## 5  1.625 2.500 0.125 0.750 0.4062500 0.96875 0.96875 0.8333333
-    ## 6  1.625 2.500 0.125 0.750 0.4062500 0.96875 0.96875 0.8333333
-    ## 7  1.625 2.500 0.125 0.750 0.4062500 0.96875 0.96875 0.8333333
-    ## 8  1.625 2.500 0.125 0.750 0.4062500 0.96875 0.96875 0.8333333
-    ## 9  1.625 2.500 0.125 0.750 0.4062500 0.96875 0.96875 0.8333333
-    ## 10 1.625 2.500 0.125 0.750 0.4062500 0.96875 0.96875 0.8333333
+    ##       TP    FP    FN    TN precision    recall       TPR       FPR
+    ## 1  0.250 0.625 1.375 2.750 0.2500000 0.1666667 0.1666667 0.1979167
+    ## 2  0.625 1.125 1.000 2.250 0.3125000 0.4166667 0.4166667 0.3750000
+    ## 3  1.250 1.375 0.375 2.000 0.4583333 0.7708333 0.7708333 0.4375000
+    ## 4  1.250 2.250 0.375 1.125 0.3437500 0.7708333 0.7708333 0.7291667
+    ## 5  1.500 2.500 0.125 0.875 0.3875000 0.9583333 0.9583333 0.7916667
+    ## 6  1.500 2.500 0.125 0.875 0.3875000 0.9583333 0.9583333 0.7916667
+    ## 7  1.500 2.500 0.125 0.875 0.3875000 0.9583333 0.9583333 0.7916667
+    ## 8  1.500 2.500 0.125 0.875 0.3875000 0.9583333 0.9583333 0.7916667
+    ## 9  1.500 2.500 0.125 0.875 0.3875000 0.9583333 0.9583333 0.7916667
+    ## 10 1.500 2.500 0.125 0.875 0.3875000 0.9583333 0.9583333 0.7916667
 
 ``` r
 plot(results, annotate=TRUE, main = "ROC curve for recommender method IBCF")
 ```
 
 ![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-21-1.png)
+
+``` r
+plot(results, "prec/rec", annotate=TRUE, ylim=c(0,max(rslt[,'precision']/rslt[,'recall'])))
+```
+
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-21-2.png)

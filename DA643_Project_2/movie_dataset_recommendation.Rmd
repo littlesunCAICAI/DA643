@@ -1,0 +1,374 @@
+---
+title: "Movies Rating"
+author: "Yun Mai"
+date: "February 12, 2017"
+output: github_document
+---
+
+## SQL and R
+
+Assignment:
+
+Choose six recent popular movies.  Ask at least five people that you know (friends, family, classmates, imaginary friends) to rate each of these movie that they have seen on a scale of 1 to 5.  Take the results (observations) and store them in a SQL database.  Load the information into an R dataframe.
+
+Your deliverables should include your SQL scripts and your R Markdown code, posted to GitHub.
+
+This is by design a very open ended assignment.  A variety of reasonable approaches are acceptable.  You can (and should) blank out your SQL password if your solution requires it; otherwise, full credit requires that your code is "reproducible," with the assumption that I have the same database server and R software.
+
+You may work in a small group on this assignment.   If you work in a group, each group member should indicate who they worked with, and all group members should individually submit their week 2 assignment.
+
+Please start early, and do work that you would want to include in a "presentations portfolio" that you might share in a job interview with a potential employer!  You are encouraged to share thoughts, ask, and answer clarifying questions in the "Week 2: R and SQL" forum.
+
+Inspirational reading?: http://www.cnet.com/news/top-10-movie-recommendation-engines/
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the packages.
+```{r,eval=FALSE}
+install.packages(c("stringr", "XML", "maps", "RCurl","RMySQL"))
+install.packages('knitr',dependencies=TRUE,repos="http://cran.rstudio.com/")
+```
+
+```{r}
+# load pacakages need to be used
+library(stringr)
+library(XML)
+library(maps)
+library(RCurl)
+library(RMySQL)
+library(knitr)
+library(httr)
+library(jsonlite)
+```
+
+# get movie data from IMDb website
+```{r}
+movie <- htmlParse("http://www.imdb.com/chart/moviemeter/?ref_=nv_mv_mpm_7",encoding = "UTF-8")
+tables <- readHTMLTable(movie, stringsAsFactors = FALSE)
+
+# what type of structure it is? 
+class(tables)
+length(tables)
+# use str(tables)to check the structure and contents of tables. tables[1] is 'NULL', tables[2] is `amazon-affiliates`, the data I want is contained in tables[1].
+
+# cleaning the data
+tables[2] <- NULL  # remove tables[2], which is table$`amazon-affiliates`
+
+# renamed tables[[1]]
+movie_df <- tables[[1]]
+
+# rearrange the data
+colnames(movie_df)[1] <- "YearRelease"
+colnames(movie_df)[2] <- "Title"
+colnames(movie_df)[4] <- "MovieID"
+movie_df[5] <- NULL
+
+movie_df[,1] <- str_extract (movie_df[,2], "[[:digit:]]{4}")
+movie_df[,2] <- str_extract (movie_df[,2], "[[:alpha:] [:punct:]]{2,}")
+
+
+# get top 6 movies  
+movie_top6 <- movie_df[1:6,]
+movie_top6[,4] <- c(1, 2, 3, 4, 5, 6)
+
+```
+
+**Create friends table**
+```{r}
+# create friends table
+x <- 1:5
+y <- c('Ming', 'Hao', 'Alison', 'Eran', 'Orshi')
+FriendsTable <- data.frame(FriendsID=x,FriendsName=y)
+kable(FriendsTable)
+```
+
+**Create pretended rating table**
+
+Because not all my friends haven seen the those top 6 movies, they could not help me to rate the movies. SO what I have to do is to create a pretended rating table.
+```{r}
+# generate a series of pretended rating from my friends
+a <- c(0, 0.5, -0.5)
+set.seed(1)
+b<- sample(rep(a,10))
+
+set.seed(2)
+c <- sample (1.5:4.5, replace=T, 30)
+
+rating <- b+c
+
+# friend ID
+e <- nrow(movie_top6)
+fr.ID <- c(rep(1, e),rep(2,e),rep(3,e),rep(4,e),rep(5,e))
+
+# moive ID
+mo.ID <- rep(1:6,5)
+
+# friend name
+fr.Name <- c(rep('Ming',6),rep('Hao',6),rep('Alison',6),rep('Eran',6),rep('Orshi',6))
+
+# movie name
+mo.name<- rep(movie_top6$Title,5)
+
+MainTable <- data.frame(MovieID=mo.ID, MovieName=mo.name, FriendID=fr.ID, FriendName=fr.Name, FriendRating=rating)
+kable(MainTable)
+```
+
+**Subset MainTable to generate top-6 movies table**
+```{r}
+MovieTable <- data.frame(MovieID=movie_top6$MovieID, MovieName=movie_top6$Title)
+kable(MovieTable)
+```
+
+##Wirte tables to the database in MySQL
+```{r, echo= F}
+mysql_pw <- "5201"
+```
+
+**Connect to MySQL local database and write the tables into the database.**
+```{r}
+# connect to MySQL local database
+movie_con <- dbConnect(MySQL(), user='root', password=mysql_pw, dbname='movie_nosql', host='localhost')
+
+# wirte table in the database
+dbWriteTable(movie_con, name="Movie", value=MovieTable, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="Friends", value=FriendsTable, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="Rating", value=MainTable, overwrite=FALSE, append=TRUE)
+```
+
+**check whether all tables have been imported into the database**
+```{r}
+# list tables
+dbListTables(movie_con)
+
+# List fields
+dbListFields(movie_con, 'movie')
+dbListFields(movie_con, 'friends')
+dbListFields(movie_con, 'rating')
+```
+
+**Fetch table from MySQL the database**
+```{r}
+#running queries 
+query.movie <- dbSendQuery(movie_con, "SELECT * FROM movie")
+
+#retrieving data from MySQL
+moive.data <- dbFetch(query.movie, n=-1)
+kable(moive.data)
+```
+
+```{r}
+#running queries 
+query.friend <- dbSendQuery(movie_con, "SELECT * FROM friends")
+
+#retrieving data from MySQL
+friend.data <- dbFetch(query.friend, n=-1)
+kable(friend.data)
+```
+
+```{r}
+#running queries 
+query.rating <- dbSendQuery(movie_con, "SELECT * FROM rating")
+
+#retrieving data from MySQL
+rating.data <- dbFetch(query.rating, n=-1)
+kable(rating.data)
+```
+
+## Get more movie properties to generate relational database
+
+**First method: try "omdbapi" package to get info from OMDB API**
+```{r,eval=F}
+devtools::install_github("hrbrmstr/omdbapi")
+install.packages("pbapply")
+```
+
+```{r}
+library(omdbapi)
+library(dplyr)
+library(pbapply)
+packageVersion("omdbapi")
+
+ow <- search_by_title(MovieTable$MovieName[1])
+# use the get_genres function of omdbapi pacakge
+gen <- get_genres(find_by_title(MovieTable$MovieName[1]))
+# use the get_actors function of omdbapi pacakge
+act <- get_actors(find_by_title(MovieTable$MovieName[1]))
+# use the get_countries function of omdbapi pacakge
+con <- get_countries(find_by_title(MovieTable$MovieName[1]))
+# use the get_directors function of omdbapi pacakge
+dir <- get_directors(find_by_title(MovieTable$MovieName[1]))
+# use the get_writers function of omdbapi pacakge
+wri <- get_writers(find_by_title(MovieTable$MovieName[1]))
+
+# combine severl strings into one in order to put all info into one data frame
+gen1 <- paste(gen, collapse = "," )
+act1 <- paste(act, collapse = "," )
+con1 <- paste(con, collapse = "," )
+dir1 <- paste(dir, collapse = "," )
+wri1 <- paste(wri, collapse = "," )
+
+omdb.test <- data.frame(Title=ow$Title, Year=ow$Year, imdbID=ow$imdbID, genre=gen1, actor=act1, country=con1, director=dir1, writer=wri1)
+
+# set up different tables
+genre <- data.frame(genres=gen,title= rep(MovieTable$MovieName[1],length(gen)))
+actor <- data.frame(actors=act, title= rep(MovieTable$MovieName[1],length(act)))
+country <- data.frame(countries=con, title= rep(MovieTable$MovieName[1],length(con)))
+director <- data.frame(directors=dir,title= rep(MovieTable$MovieName[1],length(dir)))
+wri <- str_replace_all(wri, "\\s*\\([[:alpha:]{2,} ]+\\)", "")
+writer <- data.frame(writers=wri,title= rep(MovieTable$MovieName[1],length(wri)))
+```
+
+**Second method: use "jsonlite" package to parse JSON file from OMDB API**
+```{r}
+# find_by_id function could not find second movie info from OMDB API, so a differnt method has been combined with search_by_title function of "omdbapi" package to get the movie info from OMDB API
+ow <- search_by_title(str_trim(MovieTable$MovieName[2]))
+ow <- subset(ow, ow$Year == 2017)
+url <- paste0("http://www.omdbapi.com/?i=",ow$imdbID, "&plot=full")
+z <- fromJSON(readLines(url))
+gen1 <- z$Genre
+act1 <- z$Actors
+con1 <- z$Country
+dir1 <- z$Director
+wri1 <- z$Writer
+
+omdb1 <- data.frame(Title=ow$Title, Year=ow$Year, imdbID=ow$imdbID, genre=gen1, actor=act1, country=con1, director=dir1, writer=wri1)
+omdb <- rbind(omdb.test,omdb1)  
+
+# info of genres, actors, ect. are in a single string, which is the other way around to the "omdbapi"package. So the string has to be split into several items in order to store in the coppresponding talbes
+gen2 <- unlist(str_split(gen1, ", " ))
+act2 <- unlist(str_split(act1, ", " ))
+con2 <- unlist(str_split(con1, ", " ))
+dir2 <- unlist(str_split(dir1, ", " ))
+wri2 <- unlist(str_split(wri1, ", " ))
+
+genre2 <- data.frame(genres=gen2,title= rep(MovieTable$MovieName[2],length(gen2)))
+genre$genres <- as.character(genre$genres)
+genre <- bind_rows(genre, genre2)
+
+actor2 <- data.frame(actors=act2,title= rep(MovieTable$MovieName[2],length(act2)))
+# factors could not be joined by union function
+actor$actors <- as.character(actor$actors)
+actor <- bind_rows(actor, actor2)
+
+country2 <- data.frame(countries=con2,title= rep(MovieTable$MovieName[2],length(con2)))
+country$countries <- as.character(country$countries)
+country <- bind_rows(country, country2)
+
+director2 <- data.frame(directors=dir2,title= rep(MovieTable$MovieName[2],length(dir2)))
+director$directors <- as.character(director$directors)
+director <- bind_rows(director, director2)
+
+# remove the content in the parenthesis in writer because same writer could have different annotation in the parenthesis and will be considered as a different writer. This will create redundency.
+wri2 <- str_replace_all(wri2, "\\s*\\([[:alpha:]{2,} ]+\\)", "")
+writer2 <- data.frame(writers=wri2,title= rep(MovieTable$MovieName[2],length(wri2)))
+writer2$writers <- as.character(writer2$writers)
+writer <- bind_rows(writer, writer2)
+
+#because find_by_id function in "omdbapi" package occured an error "Error: Variables must be length 1 or 1.Problem variables: 'Ratings'". I could not figure out how to fix the problem so I gave up the first method for scraping the web but turned to the second medthod.
+
+for(i in 3:6){
+  ow <- search_by_title(str_trim(MovieTable$MovieName[i]))
+  ow <- subset(ow, ow$Year == 2017)
+  url <- paste0("http://www.omdbapi.com/?i=",ow$imdbID, "&plot=full")
+  z <- fromJSON(readLines(url))
+  gen1 <- z$Genre
+  act1 <- z$Actors
+  con1 <- z$Country
+  dir1 <- z$Director
+  wri1 <- z$Writer
+
+  omdb1 <- data.frame(Title=ow$Title, Year=ow$Year, imdbID=ow$imdbID, genre=gen1, actor=act1, country=con1, director=dir1, writer=wri1)
+  omdb <- rbind(omdb,omdb1)  
+
+  gen2 <- unlist(str_split(gen1, ", " ))
+  act2 <- unlist(str_split(act1, ", " ))
+  con2 <- unlist(str_split(con1, ", " ))
+  dir2 <- unlist(str_split(dir1, ", " ))
+  wri2 <- unlist(str_split(wri1, ", " ))
+
+  genre2 <- data.frame(genres=gen2,title= rep(MovieTable$MovieName[i],length(gen2)))
+  genre$genres <- as.character(genre$genres)
+  genre <- bind_rows(genre, genre2)
+  
+  actor2 <- data.frame(actors=act2,title= rep(MovieTable$MovieName[i],length(act2)))
+  actor$actors <- as.character(actor$actors)
+  actor <- bind_rows(actor, actor2)
+
+  country2 <- data.frame(countries=con2,title= rep(MovieTable$MovieName[i],length(con2)))
+  country$countries <- as.character(country$countries)
+  country <- bind_rows(country, country2)
+
+  director2 <- data.frame(directors=dir2,title= rep(MovieTable$MovieName[i],length(dir2)))
+  director$directors <- as.character(director$directors)
+  director <- bind_rows(director, director2)
+
+  wri2 <- str_replace_all(wri2, "\\s*\\([[:alpha:]{2,} ]+\\)", "")
+  writer2 <- data.frame(writers=wri2,title= rep(MovieTable$MovieName[i],length(wri2)))
+  writer2$writers <- as.character(writer2$writers)
+  writer <- bind_rows(writer, writer2)
+}
+
+omdb$MovieID <- seq(nrow(omdb))
+actor$actorID <- seq(nrow(actor))
+director$directorID <- seq(nrow(director))
+writer$writerID <- seq(nrow(writer))
+country$countryID <- seq(nrow(country))
+genre$genreID <- seq(nrow(genre))
+
+kable(omdb)
+head(actor, n = 3)
+head(director, n = 3)
+head(writer, n = 3)
+head(country, n = 3)
+head(genre, n = 3)
+
+```
+
+##Wirte new tables to the database in MySQL
+```{r, echo= F}
+mysql_pw <- "5201"
+```
+
+**Connect to MySQL local database and write the tables into the database.**
+```{r}
+# connect to MySQL local database
+movie_con <- dbConnect(MySQL(), user='root', password=mysql_pw, dbname='movie_nosql', host='localhost')
+
+# wirte table in the database
+dbWriteTable(movie_con, name="omdb", value=omdb, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="actor", value=actor, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="director", value=director, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="writer", value=writer, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="genre", value=genre, overwrite=FALSE, append=TRUE)
+dbWriteTable(movie_con, name="country", value=country, overwrite=FALSE, append=TRUE)
+```
+
+**check whether all tables have been imported into the database**
+```{r}
+# list tables
+dbListTables(movie_con)
+
+# list fields
+dbListFields(movie_con, 'omdb')
+dbListFields(movie_con, 'actor')
+dbListFields(movie_con, 'director')
+dbListFields(movie_con, 'writer')
+dbListFields(movie_con, 'genre')
+dbListFields(movie_con, 'country')
+```
+
+**Fetch table from MySQL the database**
+```{r}
+#connect to MySQL local database
+movie_con <- dbConnect(MySQL(), user='root', password=mysql_pw, dbname='movie_nosql', host='localhost')
+
+#running query
+query.actor <- dbSendQuery(movie_con, "SELECT * FROM actor")
+
+#retrieving the actor data from MySQL
+actor.data <- dbFetch(query.actor, n=-1)
+kable(actor.data)
+```
+
