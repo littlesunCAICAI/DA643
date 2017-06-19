@@ -1,0 +1,291 @@
+---
+title: "DATA 643 Project 2 - Content-Based and Collaborative Filtering"
+author: "Yun Mai"
+date: "June 17, 2017"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The goal of this assignment is for you to try out different ways of implementing and configuring a recommender, and to evaluate your different approaches.
+
+For assignment 2, start with an existing dataset of user-item ratings, such as our toy books dataset, MovieLens, Jester [http://eigentaste.berkeley.edu/dataset/] or another dataset of your choosing. Implement at least two of these recommendation algorithms:
+
+. Content-Based Filtering
+
+. User-User Collaborative Filtering
+
+. Item-Item Collaborative Filtering
+
+As an example of implementing a Content-Based recommender, you could build item profiles for a subset of MovieLens movies from scraping http://www.imdb.com/ or using the API at https://www.omdbapi.com/ (which has very recently instituted a small monthly fee). A more challenging method would be to pull movie summaries or reviews and apply tf-idf and/or topic modeling.
+
+You should evaluate and compare different approaches, using different algorithms, normalization techniques, similarity methods, neighborhood sizes, etc. You don't need to be exhaustive-these are just some suggested possibilities.
+
+You may use the course text's recommenderlab or any other library that you want.
+
+Please provide at least one graph, and a textual summary of your findings and recommendations.
+
+```{r,eval=FALSE}
+install.packages("R.matlab")
+install.packages("recommenderlab")
+```
+
+
+Load packages.
+```{r}
+suppressWarnings(suppressMessages(library(RCurl)))
+suppressWarnings(suppressMessages(library(knitr)))
+suppressWarnings(suppressMessages(library(tidyr)))
+suppressWarnings(suppressMessages(library(stringr)))
+suppressWarnings(suppressMessages(library(R.matlab)))
+# for collaborative filtering 
+suppressWarnings(suppressMessages(library(recommenderlab)))
+```
+
+
+
+####Data
+
+```{r}
+# load data of movie ratings from my friends created
+url <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/omdb_2.csv"
+url_rating <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/rating_2.csv"  
+url_friend <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/friends.csv"
+url_genre <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/genre.csv"
+kable(head(movie <- read.csv(url),n=2))
+kable(head(rating <- read.csv(url_rating),n=2))
+kable(head(friend <- read.csv(url_friend),n=2))
+kable(head(genre <- read.csv(url_genre),n=2))
+
+rating <- merge(rating,friend, by.x = "FriendID", by.y = "FriendsID")
+kable(head(rating <- rating[c("FriendID", "FriendName", "MovieID", "MovieName", "FriendRating")],n=2))
+```
+
+#### **1. Content-Based Filtering**
+
+#### 1.1 Feature Matrix
+
+#### 1.1.1 Binary Feature Matrix
+
+Movie genre will be used as the fesatures to build the content-based filtering. To create a feature matrix, the genre table will be reshaped.
+
+```{r}
+genre_2 <- genre[c("genres","genreID")]
+genre_2 <- genre_2[!duplicated(genre_2$genres),]
+genre_2$genreID <- seq(1:nrow(genre_2))
+genre_3 <- subset(genre, select = -c(X,row_names,genreID))
+genre_4 <- merge(genre_2,genre_3, by.x = "genres", by.y = "genres")
+genre_5 <- spread(genre_4, genreID, genres)
+colnames(genre_5) <- c('title',as.character(genre_2$genres))
+genre_5[is.na(genre_5)] <- 0
+
+a <- genre_5[,2:12]
+a$Action <- str_replace_all(a$Action,"[[:alpha:]].+","1")
+a$Crime <- str_replace_all(a$Crime,"[[:alpha:]].+","1")
+a$Thriller <- str_replace_all(a$Thriller,"[[:alpha:]].+","1")
+a$Adventure <- str_replace_all(a$Adventure,"[[:alpha:]].+","1")
+a$Fantasy <- str_replace_all(a$Fantasy,"[[:alpha:]].+","1")
+a[,'Sci-Fi'] <- str_replace_all(a[,'Sci-Fi'],"[[:alpha:]].+","1")
+a$Family <- str_replace_all(a$Family,"[[:alpha:]].+","1")
+a$Musical <- str_replace_all(a$Musical,"[[:alpha:]].+","1")
+a$Drama <- str_replace_all(a$Drama,"[[:alpha:]].+","1")
+a$Animation <- str_replace_all(a$Animation,"[[:alpha:]].+","1")
+a$Comedy <- str_replace_all(a$Comedy,"[[:alpha:]].+","1")
+a[is.na(a)] <- 0
+binary_genre_matrix <- sapply(a,as.numeric)
+kable(binary_genre_matrix_df <- cbind('MovieName'= genre_5[,1],a))
+```
+
+#### 1.1.2  Document Frequency (DF) and Inverse Document Frequency (IDF)
+
+```{r}
+binary_DF <- colSums(binary_genre_matrix,na.rm = T, dims = 1)
+N <- 7
+binary_IDF <- log10(N/binary_DF)
+kable(binary_DF_IDF <- data.frame(binary_DF,binary_IDF))
+```
+
+#### 1.1.3 Total_atrributes
+```{r}
+binary_Total_atrributes <- rowSums(binary_genre_matrix,na.rm = T, dims = 1)
+kable(binary_Total_atrributes_df <- data.frame('Moive'= binary_genre_matrix_df[,'MovieName'], binary_Total_atrributes))
+```
+
+#### 1.1.4 bianary rating matrix 
+
+```{r}
+rating_1 <- rating[c('FriendName', 'MovieName', 'FriendRating')]
+binary_rating_matrix <- spread(rating_1, MovieName, FriendRating)
+kable(head(binary_rating_matrix,n=3))
+
+binary_rating_mean <- matrix(rowMeans(binary_rating_matrix[,2:8], na.rm = T, dims = 1))
+binary_rating_mean_df <- as.data.frame(binary_rating_mean)
+binary_rating_mean_df$Friend <- binary_rating_matrix[,'FriendName']
+colnames(binary_rating_mean_df) <- c('rating_mean','Friend')
+kable(binary_rating_mean_df <- binary_rating_mean_df[,c('Friend','rating_mean')])
+
+binary_rating_mean_mx <- matrix(rep(binary_rating_mean, 7),nrow=8,ncol=7)
+binary_rating_matrix_intm <- binary_rating_matrix[,2:8] - binary_rating_mean_mx
+binary_rating_matrix_nor <- sapply(binary_rating_matrix_intm, function(x) ifelse(x > 0, 1, -1))
+binary_rating_matrix_nor_df <- as.data.frame(binary_rating_matrix_nor)
+binary_rating_matrix_nor_df$Friend <- as.character(binary_rating_mean_df[,1])
+kable(binary_rating_matrix_nor_df <- binary_rating_matrix_nor_df[,c(8,1:7)])
+```
+
+#### 1.2 Normoalization 
+
+For a binary data, we nomalize the item profile by deviding the term occurrence(1/0) by the square root of number of features in the movie.
+
+```{r}
+x <- matrix(rep(sqrt(binary_Total_atrributes),11),7)
+binary_genre_matrix_nor <- binary_genre_matrix / x
+binary_genre_matrix_nor_df <- data.frame(binary_genre_matrix_nor)
+binary_genre_matrix_nor_df$Movie <- binary_genre_matrix_df[,1]
+(binary_genre_matrix_nor_df <- binary_genre_matrix_nor_df[,c(12,1:11)])
+```
+
+
+#### 1.3 User Profile
+
+```{r}
+binary_rating_matrix_nor[is.na(binary_rating_matrix_nor)] <- 0
+binary_user_profile <- binary_rating_matrix_nor %*% binary_genre_matrix_nor
+binary_user_profile_df <- as.data.frame(binary_user_profile)
+binary_user_profile_df$Friend <- binary_rating_matrix_nor_df[,1]
+(binary_user_profile_df <- binary_user_profile_df[,c(12,1:11)])
+```
+
+#### 1.4 Weighted Scores
+
+Weighted scores of each movie is the dot product of vector of normalized item fetures(binary_genre_matrix_nor) for the coppresonding movie and vector of IDF(binary_IDF). 
+
+```{r}
+binary_IDF <- matrix(binary_IDF,1)
+x <- t(binary_genre_matrix_nor)
+binary_weight <- x * as.vector(binary_IDF)
+binary_weight_df <- as.data.frame(binary_weight)
+colnames(binary_weight_df) <- binary_genre_matrix_nor_df[,1]
+binary_weight_df
+```
+
+Then the dot product of the vector of the weighted scores of each movie and the vector of user-profile (binary_rating_matrix_nor) for a user tell us the probability that the user will like a particular movie.
+
+```{r}
+cb_binary_prediction <- binary_user_profile %*% binary_weight
+colnames(cb_binary_prediction) <- colnames(binary_weight_df)
+rownames(cb_binary_prediction) <-binary_user_profile_df[,1]
+cb_binary_prediction
+```
+```{r}
+image(cb_binary_prediction, main = "Probability", xlab = "Movie", ylab = "Friend")
+```
+
+From the content-based prediction, it seems that Beauty and the Beast is the most popular movie among these 7 movies of my friends. Orshi tend to give negative ratings to all movies except The Fate of the Furious and this movie is the only one get positive predition for Orshi. I know that Kate who only watched Beauty and the Beast and The Good Dinosaur and she likes both movies. But the prediction suggests that Kate would not like any of these movies.
+
+#### **2. Collaborative Filtering**
+
+#### 2.1 Coercion the Data to Rating Matrices
+
+```{r}
+cf_rating_matrix <- binary_rating_matrix [-c(1)]
+cf_rating_matrix <- as.matrix(cf_rating_matrix)
+cf_rating <- as(cf_rating_matrix, "realRatingMatrix")
+getRatingMatrix(cf_rating)
+
+# identical(as(cf_rating, "matrix"),cf_rating_matrix) 
+# TRUE
+
+# rowCounts(cf_rating[1,])
+# as(cf_rating[1,],'list')
+# rowMeans(cf_rating[1,])
+hist(getRatings(cf_rating),breaks = 10)
+# row centering normalization
+hist(getRatings(normalize(cf_rating)), breaks=8)
+# Z-score normalization
+hist(getRatings(normalize(cf_rating, method="Z-score")), breaks=8)
+# the mean rating for each movie
+hist(colMeans(cf_rating), breaks=10)
+```
+
+The distribution of ratings is nearly a normal distribution. The distribution of means of ratings is not a normal distribution.
+
+#### 2.2 Normalization
+
+```{r}
+cf_rating_nor <- normalize(cf_rating)
+image(cf_rating, main = "Raw Ratings")
+image(cf_rating_nor, main = "Normalized Ratings")
+```
+
+#### 2.3  IBCF: Item-Based Collaborative Filtering
+
+```{r}
+# Creation of the model
+cf_train <- as(cf_rating_matrix[1:5,],"realRatingMatrix")
+cf_test <- as(cf_rating_matrix[6:8,],"realRatingMatrix")
+cf_item_r <- Recommender(cf_train, method = "IBCF")
+
+# Making predictions
+cf_item_recom <- predict(cf_item_r, cf_test, type="ratings")
+as(cf_item_recom, "matrix")
+```
+
+```{r}
+# Compare to the real rating, only not rated cells have been predicted
+cf_rating_matrix[6:8,]
+```
+
+```{r}
+# similarity table
+getRatingMatrix(cf_train)
+(cos_sim <- similarity(cf_train, method = 'cosine', which = 'item'))
+image(as.matrix(cos_sim), main = "Item Similarity",xlab="Movie",ylab="Movie")
+```
+
+From the similarity table we can find the most similar movie for each movie, for example, movie-1's neighbour is movie-2 and movie-2's neighbour is movie-6 in training set.
+
+#### 2.4  UBCF: User-Based Collaborative Filtering
+
+```{r}
+# Creation of the model
+cf_item_r <- Recommender(cf_train, method = "UBCF")
+
+# Making predictions
+cf_item_recom <- predict(cf_item_r, cf_test, type="ratings")
+as(cf_item_recom, "matrix")
+```
+
+```{r}
+# similarity table
+getRatingMatrix(cf_train)
+(cos_sim <- similarity(cf_train, method = 'cosine', which = 'user'))
+image(as.matrix(cos_sim), main = "Item Similarity",xlab = "Friend", ylab = "Friend")
+```
+
+#### **3 Evaluation of Predicted Ratings**
+
+```{r}
+cf_itm_e <- evaluationScheme(cf_rating, method="split", train=0.8, given=2, goodRating = 2.5)
+r1 <- Recommender(getData(cf_itm_e, "train"), "IBCF")
+r2 <- Recommender(getData(cf_itm_e, "train"), "UBCF")
+p1 <- predict(r1, getData(cf_itm_e, "known"), type="ratings")
+p2 <- predict(r2, getData(cf_itm_e, "known"), type="ratings")
+(error <- rbind(UBCF = calcPredictionAccuracy(p1, getData(cf_itm_e, "unknown")),IBCF = calcPredictionAccuracy(p2, getData(cf_itm_e, "unknown"))))
+```
+
+Item-base callborative filtering performed better than user-base callborative filtering as RMSE of IBSF is lower than that of UBCF.
+
+#### **Evaluation of a top-N Recommender Algorithm**
+
+```{r}
+set.seed(2017)
+scheme <- evaluationScheme(cf_train, method="cross", k=4, given=2,goodRating=2.5)
+results <- evaluate(scheme, method="IBCF", type = "topNList")
+getConfusionMatrix(results)[[1]]
+avg(results)
+plot(results, annotate=TRUE, main = "ROC curve for recommender method IBCF")
+
+```
+
