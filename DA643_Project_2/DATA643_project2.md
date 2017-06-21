@@ -25,23 +25,31 @@ Data
 
 1.  Content-Based Filtering
 
-    1.1 Feature Matrix
+    1.1 Binary Representation
 
-        1.1.1 Binary Feature Matrix
+    1.1.1 Binary Feature Matrix
 
-        1.1.2  Document Frequency (DF) and Inverse Document Frequency (IDF)
+        1.1.1.1 Feature Matrix
 
-        1.1.3 Total_atrributes
+        1.1.1.2 Document Frequency (DF) and Inverse Document Frequency (IDF)
 
-        1.1.4 bianary rating matrix 
+        1.1.1.3 Total_atrributes
 
-    1.2 Normoalization
+        1.1.1.4 bianary rating matrix 
 
-    1.3 User Profile
+    1.1.2 Normoalization of Fetures Matrix
 
-    1.4 Weighted Scores
+        1.1.3 User Profile
 
-    1.5 Prediction
+        1.1.4 Weighted Scores
+
+        1.1.5 Prediction
+
+    1.2 Non-binary representation
+
+        1.2.1 Feature extraction
+
+        1.2.2 Pridiction
 
 2.  Collaborative Filtering
 
@@ -62,6 +70,8 @@ Set up working environment.
 ``` r
 install.packages("R.matlab")
 install.packages("recommenderlab")
+install.packages("tidytext")
+install.packages("janeaustenr")
 ```
 
 Load packages.
@@ -72,14 +82,24 @@ suppressWarnings(suppressMessages(library(knitr)))
 suppressWarnings(suppressMessages(library(tidyr)))
 suppressWarnings(suppressMessages(library(stringr)))
 suppressWarnings(suppressMessages(library(R.matlab)))
-# for collaborative filtering 
+# the following three packages will be used for extract the features from movie stroyline
+# creat tbl_df, tbl from dataframe for tidytext
+suppressWarnings(suppressMessages(library(tibble)))
+# split words from movie text
+suppressWarnings(suppressMessages(library(tidytext)))
+# count words
+suppressWarnings(suppressMessages(library(dplyr)))
+
+# recommenderlab will be used for collaborative filtering 
 suppressWarnings(suppressMessages(library(recommenderlab)))
+# draw figures
+suppressWarnings(suppressMessages(library(ggplot2)))
 ```
 
 #### Data
 
 ``` r
-# load data of movie ratings from my friends created
+# load data of movie ratings from my friends created for investigating rational database 
 url <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/omdb_2.csv"
 url_rating <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/rating_2.csv"  
 url_friend <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/friends.csv"
@@ -131,9 +151,9 @@ kable(head(rating <- rating[c("FriendID", "FriendName", "MovieID", "MovieName", 
 
 #### **1. Content-Based Filtering**
 
-#### 1.1 Feature Matrix
+#### 1.1 Binary Representation
 
-#### 1.1.1 Binary Feature Matrix
+#### 1.1.1.1 Feature Matrix
 
 Movie genre will be used as the fesatures to build the content-based filtering. To create a feature matrix, the genre table will be reshaped.
 
@@ -209,7 +229,7 @@ kable(binary_genre_matrix_df <- cbind('MovieName'= genre_5[,1],a))
 | The Good Dinosaur            | 0      | 0     | 0        | 1         | 1       | 0      | 1      | 0       | 1     | 1         | 1      |
 | Thor: Ragnarok               | 1      | 0     | 0        | 1         | 1       | 0      | 0      | 0       | 0     | 0         | 0      |
 
-#### 1.1.2 Document Frequency (DF) and Inverse Document Frequency (IDF)
+#### 1.1.1.2 Document Frequency (DF) and Inverse Document Frequency (IDF)
 
 ``` r
 binary_DF <- colSums(binary_genre_matrix,na.rm = T, dims = 1)
@@ -232,7 +252,7 @@ kable(binary_DF_IDF <- data.frame(binary_DF,binary_IDF))
 | Animation |           1|     0.845098|
 | Comedy    |           1|     0.845098|
 
-#### 1.1.3 Total\_atrributes
+#### 1.1.1.3 Total\_atrributes
 
 ``` r
 binary_Total_atrributes <- rowSums(binary_genre_matrix,na.rm = T, dims = 1)
@@ -249,7 +269,7 @@ kable(binary_Total_atrributes_df <- data.frame('Moive'= binary_genre_matrix_df[,
 | The Good Dinosaur            |                          6|
 | Thor: Ragnarok               |                          3|
 
-#### 1.1.4 bianary rating matrix
+#### 1.1.1.4 bianary rating matrix
 
 ``` r
 rating_1 <- rating[c('FriendName', 'MovieName', 'FriendRating')]
@@ -302,7 +322,7 @@ kable(binary_rating_matrix_nor_df <- binary_rating_matrix_nor_df[,c(8,1:7)])
 | Orshi  |                    NA|              -1              |     NA|                        -1|                        1|                 NA|              -1|
 | Tito   |                    NA|               1              |     -1|                        -1|                       NA|                 NA|              -1|
 
-#### 1.2 Normoalization
+#### 1.1.2 Normoalization of Fetures Matrix
 
 For a binary data, we nomalize the item profile by deviding the term occurrence(1/0) by the square root of number of features in the movie.
 
@@ -331,7 +351,7 @@ binary_genre_matrix_nor_df$Movie <- binary_genre_matrix_df[,1]
     ## 6 0.4082483 0.0000000 0.4082483 0.0000000 0.4082483 0.4082483 0.4082483
     ## 7 0.5773503 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
 
-#### 1.3 User Profile
+#### 1.1.3 User Profile
 
 ``` r
 binary_rating_matrix_nor[is.na(binary_rating_matrix_nor)] <- 0
@@ -360,7 +380,7 @@ binary_user_profile_df$Friend <- binary_rating_matrix_nor_df[,1]
     ## 7  0.0000000  0.0000000  0.0000000  0.0000000  0.0000000
     ## 8  0.0000000  0.0000000 -0.5773503  0.0000000  0.0000000
 
-#### 1.4 Weighted Scores
+#### 1.1.4 Weighted Scores
 
 Weighted scores of each movie is the dot product of vector of normalized item fetures(binary\_genre\_matrix\_nor) for the coppresonding movie and vector of IDF(binary\_IDF).
 
@@ -410,7 +430,7 @@ binary_weight_df
     ## Animation        0.34500983     0.00000000
     ## Comedy           0.34500983     0.00000000
 
-#### 1.5 Prediction
+#### 1.1.5 Prediction
 
 Then the dot product of the vector of the weighted scores of each movie and the vector of user-profile (binary\_rating\_matrix\_nor) for a user tell us the probability that the user will like a particular movie.
 
@@ -456,6 +476,128 @@ image(cb_binary_prediction, main = "Probability", xlab = "Movie", ylab = "Friend
 ![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-12-1.png)
 
 From the content-based prediction, it seems that Beauty and the Beast is the most popular movie among these 7 movies of my friends. Orshi tend to give negative ratings to all movies except The Fate of the Furious and this movie is the only one get positive predition for Orshi. I know that Kate who only watched Beauty and the Beast and The Good Dinosaur and she likes both movies. But the prediction suggests that Kate would not like any of these movies.
+
+#### 1.2 Non-binary representation
+
+#### 1.2.1 Feature extraction
+
+The storyline will be use to extract the features for each movie
+
+``` r
+movie_1 <- data.frame(lapply(movie, as.character), stringsAsFactors=FALSE)
+movie_words <- movie_1[,c('Title','storyline')]
+movie_words <- as_data_frame(movie_words)
+
+# frequency of each words in each movie
+movie_words <- unnest_tokens(movie_words,word, storyline) %>% 
+  count( Title, word, sort = TRUE) %>% 
+  ungroup()
+
+# count total words in each movie
+total_words <- movie_words %>% group_by(Title) %>% summarize(total = sum(n))
+
+(movie_words <- left_join(movie_words, total_words))
+```
+
+    ## Joining, by = "Title"
+
+    ## # A tibble: 448 × 4
+    ##                             Title  word     n total
+    ##                             <chr> <chr> <int> <int>
+    ## 1         The Fate of the Furious   the    13   124
+    ## 2                           Logan   the    11   206
+    ## 3                           Logan    to    11   206
+    ## 4                           Logan     a     8   206
+    ## 5         The Fate of the Furious   and     7   124
+    ## 6  Guardians of the Galaxy Vol. 2   the     6    63
+    ## 7         The Fate of the Furious    of     6   124
+    ## 8               The Good Dinosaur   the     6    68
+    ## 9                  Thor: Ragnarok   the     6    49
+    ## 10                          Logan   and     5   206
+    ## # ... with 438 more rows
+
+``` r
+ggplot(movie_words, aes(n/total, fill = Title)) +
+  geom_histogram(show.legend = FALSE) +
+  facet_wrap(~Title, ncol = 2, scales = "free_y")
+```
+
+    ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-14-1.png)
+
+The above figures exhibit similar distributions for all the movies. From the pattern of distribution,we can see that only a few of words that occur frequently. From here TF-IDF will be used to find the important words of each movie by using bind\_tf\_idf function in tidytext package.
+
+``` r
+# calculate TF-IDF 
+(movie_words <- movie_words %>%
+  bind_tf_idf(word, Title, n)) %>% 
+  arrange(desc(tf_idf))
+```
+
+    ## # A tibble: 448 × 7
+    ##                             Title      word     n total         tf
+    ##                             <chr>     <chr> <int> <int>      <dbl>
+    ## 1            Beauty and the Beast      only     3    58 0.05172414
+    ## 2        Star Wars: The Last Jedi       her     2    34 0.05882353
+    ## 3            Beauty and the Beast        be     2    58 0.03448276
+    ## 4            Beauty and the Beast      form     2    58 0.03448276
+    ## 5  Guardians of the Galaxy Vol. 2 guardians     2    63 0.03174603
+    ## 6               The Good Dinosaur      arlo     2    68 0.02941176
+    ## 7               The Good Dinosaur dinosaurs     2    68 0.02941176
+    ## 8        Star Wars: The Last Jedi      2015     1    34 0.02941176
+    ## 9        Star Wars: The Last Jedi   awakens     1    34 0.02941176
+    ## 10       Star Wars: The Last Jedi   chapter     1    34 0.02941176
+    ## # ... with 438 more rows, and 2 more variables: idf <dbl>, tf_idf <dbl>
+
+#### 1.2.2 Pridiction
+
+``` r
+# find unique word
+n_occur <- data.frame(table(movie_words$word))
+# filter words occur at least in two movies
+movie_words_dup <- movie_words[movie_words$word %in% n_occur$Var1[n_occur$Freq > 1],]
+
+# the tf-idf of each word for each movie
+imt <- spread(movie_words_dup, word,tf_idf, fill = NA, convert = FALSE, drop = TRUE,sep = NULL)
+imt <- imt[-c(2:5)]
+feature <-apply(imt[,c(2:63)], 2, function(x) tapply(x, imt$Title, sum,na.rm=T))
+
+#find the similarity
+feature_m <- as(feature,"realRatingMatrix")
+(cos_sim <- similarity(feature_m, method = 'cosine', which = 'item'))
+```
+
+    ##                                Beauty and the Beast
+    ## Guardians of the Galaxy Vol. 2           0.13699624
+    ## Logan                                    0.27962005
+    ## Star Wars: The Last Jedi                 0.09548751
+    ## The Fate of the Furious                  0.11306317
+    ## The Good Dinosaur                        0.24560655
+    ## Thor: Ragnarok                           0.25932317
+    ##                                Guardians of the Galaxy Vol. 2      Logan
+    ## Guardians of the Galaxy Vol. 2                                          
+    ## Logan                                              0.30845922           
+    ## Star Wars: The Last Jedi                           0.03810912 0.31202199
+    ## The Fate of the Furious                            0.50500573 0.36920602
+    ## The Good Dinosaur                                  0.04136403 0.27563527
+    ## Thor: Ragnarok                                     0.17676893 0.33536068
+    ##                                Star Wars: The Last Jedi
+    ## Guardians of the Galaxy Vol. 2                         
+    ## Logan                                                  
+    ## Star Wars: The Last Jedi                               
+    ## The Fate of the Furious                      0.09696210
+    ## The Good Dinosaur                            0.21336818
+    ## Thor: Ragnarok                               0.02092179
+    ##                                The Fate of the Furious The Good Dinosaur
+    ## Guardians of the Galaxy Vol. 2                                          
+    ## Logan                                                                   
+    ## Star Wars: The Last Jedi                                                
+    ## The Fate of the Furious                                                 
+    ## The Good Dinosaur                           0.20825389                  
+    ## Thor: Ragnarok                              0.17437285        0.06572412
+
+From the similarity results, we can see the most silimar movie for each movie, for example, Beauty and the Beast and Logan are most similar.Base on these results, we can recommend Logan to Aliaon, Eran, Hao, and Ming as they gave postive ratign to Beauty and the Beast based on the nomalized binary rating table.
 
 #### **2. Collaborative Filtering**
 
@@ -507,28 +649,28 @@ getRatingMatrix(cf_rating)
 hist(getRatings(cf_rating),breaks = 10)
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-13-1.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-17-1.png)
 
 ``` r
 # row centering normalization
 hist(getRatings(normalize(cf_rating)), breaks=8)
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-13-2.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-17-2.png)
 
 ``` r
 # Z-score normalization
 hist(getRatings(normalize(cf_rating, method="Z-score")), breaks=8)
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-13-3.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-17-3.png)
 
 ``` r
 # the mean rating for each movie
 hist(colMeans(cf_rating), breaks=10)
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-13-4.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-17-4.png)
 
 The distribution of ratings is nearly a normal distribution. The distribution of means of ratings is not a normal distribution.
 
@@ -539,13 +681,13 @@ cf_rating_nor <- normalize(cf_rating)
 image(cf_rating, main = "Raw Ratings")
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-14-1.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-18-1.png)
 
 ``` r
 image(cf_rating_nor, main = "Normalized Ratings")
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-14-2.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-18-2.png)
 
 #### 2.3 IBCF: Item-Based Collaborative Filtering
 
@@ -606,7 +748,7 @@ cf_rating_matrix[6:8,]
 image(as.matrix(cos_sim), main = "Item Similarity",xlab="Movie",ylab="Movie")
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-17-1.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-21-1.png)
 
 From the similarity table we can find the most similar movie for each movie, for example, movie-1's neighbour is movie-2 and movie-2's neighbour is movie-6 in training set.
 
@@ -653,7 +795,7 @@ cf_recom_list <- as(cf_user_recom, "list") #convert recommenderlab object to rea
 image(as.matrix(cos_sim), main = "Item Similarity",xlab = "Friend", ylab = "Friend")
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-19-1.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-23-1.png)
 
 #### 2.5 Evaluation of Predicted Ratings
 
@@ -666,9 +808,9 @@ p2 <- predict(r2, getData(cf_itm_e, "known"), type="ratings")
 (error <- rbind(UBCF = calcPredictionAccuracy(p1, getData(cf_itm_e, "unknown")),IBCF = calcPredictionAccuracy(p2, getData(cf_itm_e, "unknown"))))
 ```
 
-    ##          RMSE      MSE      MAE
-    ## UBCF 2.229983 4.972823 2.151479
-    ## IBCF 2.639439 6.966640 2.511388
+    ##      RMSE MSE MAE
+    ## UBCF  NaN NaN NaN
+    ## IBCF  NaN NaN NaN
 
 Item-base callborative filtering performed better than user-base callborative filtering as RMSE of IBSF is lower than that of UBCF.
 
@@ -681,7 +823,7 @@ results <- evaluate(scheme, method="IBCF", type = "topNList")
 ```
 
     ## IBCF run fold/sample [model time/prediction time]
-    ##   1  [0.02sec/0.01sec] 
+    ##   1  [0sec/0sec] 
     ##   2  [0sec/0.01sec] 
     ##   3  [0sec/0sec] 
     ##   4  [0sec/0.02sec]
@@ -707,10 +849,16 @@ avg(results)
 plot(results, annotate=TRUE, main = "ROC curve for recommender method IBCF")
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-21-1.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-25-1.png)
 
 ``` r
 plot(results, "prec/rec", annotate=TRUE, ylim=c(0,max(rslt[,'precision']/rslt[,'recall'])))
 ```
 
-![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-21-2.png)
+![](DATA643_project2_files/figure-markdown_github/unnamed-chunk-25-2.png)
+
+*Referecnce:*
+
+1.  Shuvayan Das,2015,Analytics Vidhya, Beginners Guide to learn about Content Based Recommender Engines. <https://www.analyticsvidhya.com/blog/2015/08/beginners-guide-learn-content-based-recommender-systems/>
+
+2.  Julia Silge and David Robinson, 2017, Term Frequency and Inverse Document Frequency (tf-idf) Using Tidy Data. Principles. <https://cran.r-project.org/web/packages/tidytext/vignettes/tf_idf.html>

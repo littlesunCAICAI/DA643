@@ -31,26 +31,34 @@ Data
 
 1. Content-Based Filtering
     
-    1.1 Feature Matrix
-        
-        1.1.1 Binary Feature Matrix
-        
-        1.1.2  Document Frequency (DF) and Inverse Document Frequency (IDF)
-        
-        1.1.3 Total_atrributes
-        
-        1.1.4 bianary rating matrix 
-        
-    1.2 Normoalization 
+    1.1 Binary Representation
     
-    1.3 User Profile
+      1.1.1 Binary Feature Matrix
+        
+        1.1.1.1 Feature Matrix
+        
+        1.1.1.2 Document Frequency (DF) and Inverse Document Frequency (IDF)
+        
+        1.1.1.3 Total_atrributes
+        
+        1.1.1.4 bianary rating matrix 
+        
+      1.1.2 Normoalization of Fetures Matrix
+        
+        1.1.3 User Profile
+        
+        1.1.4 Weighted Scores
+        
+        1.1.5 Prediction
     
-    1.4 Weighted Scores
+    1.2 Non-binary representation
     
-    1.5 Prediction
+        1.2.1 Feature extraction
+        
+        1.2.2 Pridiction
     
 2. Collaborative Filtering
-
+    
     2.1 Coercion the Data to Rating Matrices
     
     2.2 Normalization
@@ -68,6 +76,8 @@ Set up working environment.
 ```{r,eval=FALSE}
 install.packages("R.matlab")
 install.packages("recommenderlab")
+install.packages("tidytext")
+install.packages("janeaustenr")
 ```
 
 Load packages.
@@ -77,8 +87,18 @@ suppressWarnings(suppressMessages(library(knitr)))
 suppressWarnings(suppressMessages(library(tidyr)))
 suppressWarnings(suppressMessages(library(stringr)))
 suppressWarnings(suppressMessages(library(R.matlab)))
-# for collaborative filtering 
+# the following three packages will be used for extract the features from movie stroyline
+# creat tbl_df, tbl from dataframe for tidytext
+suppressWarnings(suppressMessages(library(tibble)))
+# split words from movie text
+suppressWarnings(suppressMessages(library(tidytext)))
+# count words
+suppressWarnings(suppressMessages(library(dplyr)))
+
+# recommenderlab will be used for collaborative filtering 
 suppressWarnings(suppressMessages(library(recommenderlab)))
+# draw figures
+suppressWarnings(suppressMessages(library(ggplot2)))
 ```
 
 
@@ -86,7 +106,7 @@ suppressWarnings(suppressMessages(library(recommenderlab)))
 #### Data
 
 ```{r}
-# load data of movie ratings from my friends created
+# load data of movie ratings from my friends created for investigating rational database 
 url <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/omdb_2.csv"
 url_rating <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/rating_2.csv"  
 url_friend <- "https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_Project_2/OMDB_data/friends.csv"
@@ -102,9 +122,9 @@ kable(head(rating <- rating[c("FriendID", "FriendName", "MovieID", "MovieName", 
 
 #### **1. Content-Based Filtering**
 
-#### 1.1 Feature Matrix
+#### 1.1 Binary Representation
 
-#### 1.1.1 Binary Feature Matrix
+#### 1.1.1.1 Feature Matrix
 
 Movie genre will be used as the fesatures to build the content-based filtering. To create a feature matrix, the genre table will be reshaped.
 
@@ -135,7 +155,7 @@ binary_genre_matrix <- sapply(a,as.numeric)
 kable(binary_genre_matrix_df <- cbind('MovieName'= genre_5[,1],a))
 ```
 
-#### 1.1.2  Document Frequency (DF) and Inverse Document Frequency (IDF)
+#### 1.1.1.2  Document Frequency (DF) and Inverse Document Frequency (IDF)
 
 ```{r}
 binary_DF <- colSums(binary_genre_matrix,na.rm = T, dims = 1)
@@ -144,13 +164,13 @@ binary_IDF <- log10(N/binary_DF)
 kable(binary_DF_IDF <- data.frame(binary_DF,binary_IDF))
 ```
 
-#### 1.1.3 Total_atrributes
+#### 1.1.1.3 Total_atrributes
 ```{r}
 binary_Total_atrributes <- rowSums(binary_genre_matrix,na.rm = T, dims = 1)
 kable(binary_Total_atrributes_df <- data.frame('Moive'= binary_genre_matrix_df[,'MovieName'], binary_Total_atrributes))
 ```
 
-#### 1.1.4 bianary rating matrix 
+#### 1.1.1.4 bianary rating matrix 
 
 ```{r}
 rating_1 <- rating[c('FriendName', 'MovieName', 'FriendRating')]
@@ -171,7 +191,7 @@ binary_rating_matrix_nor_df$Friend <- as.character(binary_rating_mean_df[,1])
 kable(binary_rating_matrix_nor_df <- binary_rating_matrix_nor_df[,c(8,1:7)])
 ```
 
-#### 1.2 Normoalization 
+#### 1.1.2 Normoalization of Fetures Matrix
 
 For a binary data, we nomalize the item profile by deviding the term occurrence(1/0) by the square root of number of features in the movie.
 
@@ -184,7 +204,7 @@ binary_genre_matrix_nor_df$Movie <- binary_genre_matrix_df[,1]
 ```
 
 
-#### 1.3 User Profile
+#### 1.1.3 User Profile
 
 ```{r}
 binary_rating_matrix_nor[is.na(binary_rating_matrix_nor)] <- 0
@@ -194,7 +214,7 @@ binary_user_profile_df$Friend <- binary_rating_matrix_nor_df[,1]
 (binary_user_profile_df <- binary_user_profile_df[,c(12,1:11)])
 ```
 
-#### 1.4 Weighted Scores
+#### 1.1.4 Weighted Scores
 
 Weighted scores of each movie is the dot product of vector of normalized item fetures(binary_genre_matrix_nor) for the coppresonding movie and vector of IDF(binary_IDF). 
 
@@ -207,7 +227,7 @@ colnames(binary_weight_df) <- binary_genre_matrix_nor_df[,1]
 binary_weight_df
 ```
 
-#### 1.5 Prediction
+#### 1.1.5 Prediction
 
 Then the dot product of the vector of the weighted scores of each movie and the vector of user-profile (binary_rating_matrix_nor) for a user tell us the probability that the user will like a particular movie.
 
@@ -222,6 +242,63 @@ image(cb_binary_prediction, main = "Probability", xlab = "Movie", ylab = "Friend
 ```
 
 From the content-based prediction, it seems that Beauty and the Beast is the most popular movie among these 7 movies of my friends. Orshi tend to give negative ratings to all movies except The Fate of the Furious and this movie is the only one get positive predition for Orshi. I know that Kate who only watched Beauty and the Beast and The Good Dinosaur and she likes both movies. But the prediction suggests that Kate would not like any of these movies.
+
+#### 1.2 Non-binary representation
+
+#### 1.2.1 Feature extraction
+
+The storyline will be use to extract the features for each movie
+
+```{r}
+movie_1 <- data.frame(lapply(movie, as.character), stringsAsFactors=FALSE)
+movie_words <- movie_1[,c('Title','storyline')]
+movie_words <- as_data_frame(movie_words)
+
+# frequency of each words in each movie
+movie_words <- unnest_tokens(movie_words,word, storyline) %>% 
+  count( Title, word, sort = TRUE) %>% 
+  ungroup()
+
+# count total words in each movie
+total_words <- movie_words %>% group_by(Title) %>% summarize(total = sum(n))
+
+(movie_words <- left_join(movie_words, total_words))
+```
+
+```{r}
+ggplot(movie_words, aes(n/total, fill = Title)) +
+  geom_histogram(show.legend = FALSE) +
+  facet_wrap(~Title, ncol = 2, scales = "free_y")
+```
+
+The above figures exhibit similar distributions for all the movies. From the pattern of distribution,we can see that only a few of words that occur frequently. From here TF-IDF will be used to find the important words of each movie by using bind_tf_idf function in tidytext package. 
+
+```{r}
+# calculate TF-IDF 
+(movie_words <- movie_words %>%
+  bind_tf_idf(word, Title, n)) %>% 
+  arrange(desc(tf_idf))
+```
+
+#### 1.2.2 Pridiction
+
+```{r}
+# find unique word
+n_occur <- data.frame(table(movie_words$word))
+# filter words occur at least in two movies
+movie_words_dup <- movie_words[movie_words$word %in% n_occur$Var1[n_occur$Freq > 1],]
+
+# the tf-idf of each word for each movie
+imt <- spread(movie_words_dup, word,tf_idf, fill = NA, convert = FALSE, drop = TRUE,sep = NULL)
+imt <- imt[-c(2:5)]
+feature <-apply(imt[,c(2:63)], 2, function(x) tapply(x, imt$Title, sum,na.rm=T))
+
+#find the similarity
+feature_m <- as(feature,"realRatingMatrix")
+(cos_sim <- similarity(feature_m, method = 'cosine', which = 'item'))
+```
+
+From the similarity results, we can see the most silimar movie for each movie, for example, Beauty and the Beast and Logan are most similar.Base on these results, we can recommend Logan to Aliaon, Eran, Hao, and Ming as they gave postive ratign to Beauty and the Beast based on the nomalized binary rating table.
 
 #### **2. Collaborative Filtering**
 
@@ -329,3 +406,9 @@ plot(results, annotate=TRUE, main = "ROC curve for recommender method IBCF")
 plot(results, "prec/rec", annotate=TRUE, ylim=c(0,max(rslt[,'precision']/rslt[,'recall'])))
 ```
 
+*Referecnce:*
+
+1. Shuvayan Das,2015,Analytics Vidhya, Beginners Guide to learn about Content Based Recommender Engines.
+https://www.analyticsvidhya.com/blog/2015/08/beginners-guide-learn-content-based-recommender-systems/
+
+2. Julia Silge and David Robinson, 2017, Term Frequency and Inverse Document Frequency (tf-idf) Using Tidy Data. Principles. https://cran.r-project.org/web/packages/tidytext/vignettes/tf_idf.html
