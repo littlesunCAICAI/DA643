@@ -5,7 +5,7 @@ June 17, 2017
 
 In this project I will try out different ways of implementing and configuring a recommender, and to evaluate different approaches.
 
-I will use a movie ratings bdataset built for an assignment of ralational database to implement the following recommendation algorithms:
+I will use a movie ratings dataset built for an assignment of ralational database to implement the following recommendation algorithms:
 
 . Content-Based Filtering
 
@@ -823,9 +823,9 @@ results <- evaluate(scheme, method="IBCF", type = "topNList")
 ```
 
     ## IBCF run fold/sample [model time/prediction time]
-    ##   1  [0sec/0sec] 
-    ##   2  [0sec/0.01sec] 
-    ##   3  [0sec/0sec] 
+    ##   1  [0.01sec/0sec] 
+    ##   2  [0sec/0sec] 
+    ##   3  [0sec/0.01sec] 
     ##   4  [0sec/0.02sec]
 
 ``` r

@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 In this project I will try out different ways of implementing and configuring a recommender, and to evaluate different approaches.
 
-I will use a movie ratings bdataset built for an assignment of ralational database to implement the following recommendation algorithms:
+I will use a movie ratings dataset built for an assignment of ralational database to implement the following recommendation algorithms:
 
 . Content-Based Filtering
 
