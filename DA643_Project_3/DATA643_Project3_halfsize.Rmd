@@ -16,7 +16,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r,eval=F}
 install.packages("recommenderlab")
 install.packages("recosystem")
-install.packages("NMFN")
 install.packages("Metrics")
 
 library(devtools)
@@ -26,44 +25,44 @@ install_github(repo = "SVDApproximation", username = "tarashnot")
 
 
 ```{r}
+#convert to data to spase matrix
 suppressWarnings(suppressMessages(library(Matrix)))
+#matrix factorization 
 suppressWarnings(suppressMessages(library(recommenderlab)))
+suppressWarnings(suppressMessages(library(SVDApproximation)))
 suppressWarnings(suppressMessages(library(irlba)))
 suppressWarnings(suppressMessages(library(recosystem)))
+suppressWarnings(suppressMessages(library(SlopeOne)))
+suppressWarnings(suppressMessages(library(NMFN)))
+#data cleaning and reconstruction
 suppressWarnings(suppressMessages(library(dplyr)))
 suppressWarnings(suppressMessages(library(tidyr)))
 suppressWarnings(suppressMessages(library(knitr)))
+suppressWarnings(suppressMessages(library(data.table)))
 
 #linear algebra  here used for rmse calculation
 suppressWarnings(suppressMessages(library(Metrics)))
 
-suppressWarnings(suppressMessages(library(SlopeOne)))
-suppressWarnings(suppressMessages(library(SVDApproximation)))
-suppressWarnings(suppressMessages(library(NMFN)))
-
-suppressWarnings(suppressMessages(library(data.table)))
-suppressWarnings(suppressMessages(library(RColorBrewer)))
-
+#
 suppressWarnings(suppressMessages(library(ggplot2)))
 ```
 #### 1. Data
 
 ```{r}
 data(MovieLense)
-kable(head(MovieLense,n=5))
 ```
 
-**View the raw data**
+**1.1 View the raw data**
 ```{r}
+kable(head(MovieLense,n=5))
 # convert ratings data to realRatingMatrix for implement of recommenderlab package
 MovieLense_copy <- MovieLense 
 ml <- as(MovieLense_copy,"realRatingMatrix")
 image(sample(ml, 500), main = "Raw ratings")
 rm(MovieLense_copy )
-gc() #release memory
 ```
 
-**Statistics of ratings data:**
+**1.2 Statistics of ratings data**
 
 ```{r}
 # add numeric movie_ID to the data
@@ -78,7 +77,6 @@ rating[,c(1,3)] <- lapply(rating[,c(1,3)],function(x) as.integer(x))
 
 #convert to data.table
 as.data.table(rating)
-gc() #release memory
 
 # visualize_ratings(ratings_table = rating) visualize_ratings function from SVDApproximation package did not work for rating but worked well for the package build-in data,ratings. So I will view the data by using ggplot2 as shown in following.
 ```
@@ -98,21 +96,26 @@ item_mean <- rating %>%
   summarise(mean=mean(rating),number=n())
 
 ggplot(rating_frq,aes(Var1,Freq)) +   
-  geom_bar(aes(fill = Var1), position = "dodge", stat="identity",fill="palegreen",xlab="Score")
+  geom_bar(aes(fill = Var1), position = "dodge", stat="identity",fill="palegreen")+ labs(x = "Score")
 par(mfrow=c(2,2))
 ggplot(user_mean,aes(mean)) +
-  geom_histogram(binwidth = 0.05,col='white',fill="plum") + labs(x = "User Average Score")
+  geom_histogram(binwidth = 0.05,col='white',fill="plum") + labs(x = "User Average Score")+geom_vline(xintercept = mean(user_mean$mean),col='grey',size=2)
 ggplot(item_mean,aes(mean)) +
-  geom_histogram(binwidth = 0.05,col='white',fill="sandybrown") + labs(x = "Item Average Score")
+  geom_histogram(binwidth = 0.05,col='white',fill="sandybrown") + labs(x = "Item Average Score")+geom_vline(xintercept = mean(item_mean$mean),col='grey',size=2)
 ggplot(user_mean,aes(number)) +
-  geom_histogram(binwidth = 0.08,fill="plum") + labs(x = "Number of Rated Items")
+  geom_histogram(binwidth = 0.8,fill="plum") + labs(x = "Number of Rated Items")
 ggplot(item_mean,aes(number)) +
-  geom_histogram(binwidth = 0.08,fill="sandybrown") + labs(x = "Number of Scores Item has")
-gc() #release memory
-
+  geom_histogram(binwidth = 0.8,fill="sandybrown") + labs(x = "Number of Scores Item has")
 ```
 
-** Normolization**
+From the figures we know:
+1.Rating distribution is nealy normal and sightly right skewed. Rating four has the highest frequency.
+2.Distribution of user average score is normal.
+3.Distribution of item average score is normal.
+4.
+
+
+** 1.3 Normolization**
 
 Nornalized will be used for irlab package where the SVD function does not split the data into train and test data sets.
 ```{r}
@@ -125,9 +128,9 @@ rating_nor$rating <- rating$rating - global_mean
 gc() #release memory
 ```
 
-#### **Matrix Factorization by Singular Value Decomposition**
+#### **2. Matrix Factorization by Singular Value Decomposition**
 
-#### 1. Build Recommendation Model Base On SVD Method
+#### 2.1 Build Recommendation Model Base On SVD Method
 ```{r}
 # view the available registried mathods in recommenderlab
 recommenderRegistry$get_entries()
@@ -137,10 +140,7 @@ gc() #release memory
 
 From the list, we can see SVD (Recommender based on SVD approximation with column-mean imputation) and SVDF (Recommender based on Funk SVD with gradient descend) are available from recommenderlab package.
 
-
-**1.1 SVD Modeling**
-
-**1.1.1 Prepare Data**
+**2.2 Prepare Data**
 ```{r}
 # Convert the data to wide dataframe
 rating_c <- as.data.frame(rating_nor)
@@ -205,7 +205,7 @@ evaluationScheme(test_m, method="split", train=0.8, k=1, given=3)
 gc() #release memory
 ```
 
-**1.1.2 Get SVD**
+**2.3 Get SVD**
 
 ```{r}
 r <- Recommender(rating_m, method = "SVD")
@@ -224,7 +224,7 @@ print(paste("the number of latent features (k) for test setis ",getModel(r_test)
 gc() #release memory
 ```
 
-**1.1.3 Making Predictions From the Decomposed Matrices**
+**2.4 Making Predictions From the Decomposed Matrices**
 
 Obtain SVD matrices from SVD model.By multiply U, ??, and $V^{T}$ back to get the rank k=10 approximation of original rating matrix.
 
@@ -263,7 +263,7 @@ colnames(predict_train)<- c('user_id',unlist(movie_all))
 predict_train_1 <- gather(predict_train,movieID, rating,2:833)
 rm(predict_train)
 gc() #release memory
-kable(head(predict_train_1),caption = "Prediction For Test set")
+kable(head(predict_train_1),caption = "Prediction For Train set")
 
 predict_test <- as.data.frame(as.matrix(getRatingMatrix(predict_test_2)))
 predict_test <- cbind('user_id'= unlist(user_test),predict_test)
@@ -275,7 +275,7 @@ kable(head(predict_test_1),caption = "Prediction For Test set")
 
 ```
 
-**1.1.4 Making Recommendations**
+**2.5 Making Recommendations**
 
 Based on the laten index, we know the predicted ratings to all movies for every user. The movie with the high predicted ratings that a user hasn't rated will be returned.
 
@@ -342,9 +342,9 @@ rmse_3 <-rmse(old_rated$rating,new_rating$rating)
 print(paste("RMSE of prediction for test set is",round(rmse_3,2)))
 ```
 
-#### 2. Build Recommendation Model Base On Funk SVD Method
+#### 3. Build Recommendation Model Base On Funk SVD Method
 
-**2.1 Prepare Data**
+**3.1 Prepare Data**
 ```{r}
 # Convert the data to wide dataframe
 rating_c <- as.data.frame(rating)
@@ -409,7 +409,7 @@ evaluationScheme(test_m, method="split", train=0.8, k=1, given=3)
 gc() #release memory
 ```
 
-**2.2 Get SVD**
+**3.2 Get SVD**
 
 ```{r}
 r <- Recommender(rating_m, method = "SVDF")
@@ -428,7 +428,7 @@ print(paste("the number of latent features (k) for train set is ",getModel(r_tra
 gc() #release memory
 ```
 
-**2.3 Making Predictions From the Decomposed Matrices**
+**3.3 Making Predictions From the Decomposed Matrices**
 
 Obtain SVD matrices from SVD model.By multiply U, ??, and $V^{T}$ back to get the rank k=10 approximation of original rating matrix.
 
@@ -473,7 +473,7 @@ kable(head(predict_test_1),caption = "Prediction For Test set")
 
 ```
 
-**2.4 Making Recommendations**
+**3.4 Making Recommendations**
 
 Based on the laten index, we know the predicted ratings to all movies for every user. The movie with the high predicted ratings that a user hasn't rated will be returned.
 
@@ -540,11 +540,11 @@ rmse_3 <-rmse(old_rated$rating,new_rating$rating)
 print(paste("RMSE of prediction for test set is",round(rmse_3,2)))
 ```
 
-**1. In terms of RMSE, SVD based matrix decomposition performed better when the model was built on the normalized ratings instead of buidt on the original rating(data not shown).**
+**In terms of RMSE, SVD based matrix decomposition performed better when the model was built on the normalized ratings instead of buidt on the original rating(data not shown).**
 
-**2. Funk SVD is not appropreiate as it generate none predction.**
+**Funk SVD is not appropreiate as it generate none predction.**
 
-#### 3.Optimize the number of latent features (r or k) by minimizing the Root Mean Square Error (using irlba package to try different r)**
+#### 4.Find the optimized number of latent features (r or k) by minimizing the Root Mean Square Error (using irlba package to try different r/k)**
 
 ```{r}
 #The irlba function only computes the number of singular values corresponding to the maximum of the desired singular vectors, max(nu, nv).
@@ -560,7 +560,7 @@ SVD_100=irlba(getRatingMatrix(rating_m),nu=100,nv=100)
 plot(SVD_10$d, main="Largest singular values (r=10)")
 ```
 
-
+**r=10**
 ```{r}
 u_sigma <- SVD_10$u %*% diag(SVD_10$d)
 predict_rating <- u_sigma %*% t(SVD_10$v)
@@ -592,8 +592,9 @@ print(paste("RMSE of prediction for all rating when r=10 is",round(rmse_4,2)))
 
 **The RMSE derived from SVD_10 calculated by irlba pacakge is the different from that calclated by recommenderlab. irlba use truncated SVD**
 
-Several number of singular values(5, 20, 50, and 100) will be compared with r=10. Similar computaions will be performed as above so the code will be hide but only the results will be shown to make it consice.
+Several number of singular values(5, 20, 50, and 100) will be compared with r=10. 
 
+**r=5**
 ```{r}
 u_sigma <- SVD_5$u %*% diag(SVD_5$d)
 predict_rating <- u_sigma %*% t(SVD_5$v)
@@ -623,6 +624,7 @@ rmse_5 <-rmse(old_rated$rating,new_rating$rating)
 print(paste("RMSE of prediction for all rating when r=5 is",round(rmse_5,2)))
 ```
 
+**r=20**
 ```{r}
 u_sigma <- SVD_20$u %*% diag(SVD_20$d)
 predict_rating <- u_sigma %*% t(SVD_20$v)
@@ -651,7 +653,7 @@ new_rating <- semi_join(predict, old_rated, by = c("user_id","movieID"))
 rmse_6 <-rmse(old_rated$rating,new_rating$rating)
 print(paste("RMSE of prediction for all rating when r=20 is",round(rmse_6,2)))
 ```
-
+**r=50**
 ```{r}
 u_sigma <- SVD_50$u %*% diag(SVD_50$d)
 predict_rating <- u_sigma %*% t(SVD_50$v)
@@ -680,7 +682,7 @@ new_rating <- semi_join(predict, old_rated, by = c("user_id","movieID"))
 rmse_7 <-rmse(old_rated$rating,new_rating$rating)
 print(paste("RMSE of prediction for all rating when r=50 is",round(rmse_7,2)))
 ```
-
+**r=100**
 ```{r}
 u_sigma <- SVD_100$u %*% diag(SVD_100$d)
 predict_rating <- u_sigma %*% t(SVD_100$v)
@@ -713,10 +715,11 @@ print(paste("RMSE of prediction for all rating when r=100 is",round(rmse_8,2)))
 ```{r}
 kable(RMSE <- data.frame('r'=c(5,10,20,50,100),'RMSE'=c(rmse_5,rmse_4,rmse_6,rmse_7,rmse_8)))
 ggplot(RMSE,aes(r,RMSE))+
-  geom_line(col='blue')+geom_point(col='blue')+labs(x="Number of Singular Values",y="RMSE")
+  geom_line(col='slateblue2',size=1)+geom_point(col='slateblue2',size=2)+labs(x="Number of Singular Values",y="RMSE")
 ```
 
-**The RMSE decreased as the number of singular values increase, suggesting that SVD approximation get closer to real rating as we increased the latent features.**
+
+**Conlcuion: The RMSE decreased as the number of singular values increase, suggesting that SVD approximation get closer to real rating as we increased the latent features.**
 
 
 
