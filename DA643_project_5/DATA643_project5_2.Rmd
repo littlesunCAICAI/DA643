@@ -1,0 +1,88 @@
+---
+title: "DATA643_Project5_Spark"
+author: "Yun Mai"
+date: "July 5, 2017"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Discription
+
+In this project I will be implementing the recommender system built in project three using Spark and the sparklyr package. This recommender system uses Alterative Linear Square and Singular Value Decomposition to recommend movies to users. Movielense dataset will be used. Spark will be used to prepare the data for use.
+
+```{r, eval=F}
+install.packages("sparklyr",repos = "http://cran.us.r-project.org")
+
+```
+
+###  Installing sparklyr and Spark 
+
+```{r}
+# sparklyr::spark_install(version = "1.6.2")
+java_path <- normalizePath('C:/Java/jre1.8.0_131')
+Sys.setenv(JAVA_HOME=java_path)
+```
+
+```{r}
+library(sparklyr)
+library(dplyr)
+# sc <- spark_connect(master = "local",version = "1.6.2")
+```
+
+###  Load the data
+```{r}
+# copy mtcars into spark
+# movie_tbl <- copy_to(sc, MovieLense)
+
+#sc <- spark_connect(master = "local")
+
+user = c(0, 0, 1, 1, 2, 2)
+item = c(0, 1, 1, 2, 1, 2)
+rating = c(4.0, 2.0, 3.0, 4.0, 1.0, 5.0)
+
+df <- data.frame(user = user, item = item, rating = rating)
+
+# movie_ratings <- sdf_copy_to(sc, df, "movie_rating", overwrite = TRUE)
+# movie_ratings
+```
+
+
+### Create an explicit model with ALS algorithm.
+```{r}
+# explicit_model <- ml_als_factorization(movie_ratings, iter.max = 5, regularization.parameter = 0.01)
+# summary(explicit_model)
+
+# predictions <- explicit_model$.model %>%
+#  invoke("transform", spark_dataframe(movie_ratings)) %>%
+#  collect()
+
+# predictions
+```
+
+### Trainging data set will be trained with ALS algorithm
+```{r}
+#implicit_model <- ml_als_factorization(movie_ratings, iter.max = 5, regularization.parameter = 0.01, implicit.preferences = TRUE, alpha = 1.0)
+
+#summary(implicit_model)
+```
+
+```{r}
+# implicit_predictions <- implicit_model$.model %>%
+#  invoke("transform", spark_dataframe(movie_ratings)) %>%
+#  collect()
+
+# implicit_predictions
+```
+
+```{r}
+# spark_disconnect(sc)
+```
+
+### Conludsion
+
+Installation and setup of Spark took a lot of time so I only have time to build one model.
+
+once the data were loaded into Spark, the computation can be done fairely faster than in R. For large size data, Spark will be a good choice. 
