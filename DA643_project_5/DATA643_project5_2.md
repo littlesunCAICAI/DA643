@@ -1,98 +1,108 @@
 DATA643\_Project5\_Spark
 ================
 Yun Mai
-July 5, 2017
-
-Discription
------------
-
-In this project I will be implementing the recommender system built in project three using Spark and the sparklyr package. This recommender system uses Alterative Linear Square and Singular Value Decomposition to recommend movies to users. Movielense dataset will be used. Spark will be used to prepare the data for use.
+July 8, 2017
 
 ``` r
 install.packages("sparklyr",repos = "http://cran.us.r-project.org")
-```
-
-### Installing sparklyr and Spark
-
-``` r
-# sparklyr::spark_install(version = "1.6.2")
-java_path <- normalizePath('C:/Java/jre1.8.0_131')
-Sys.setenv(JAVA_HOME=java_path)
+packageVersion("sparklyr")
 ```
 
 ``` r
-library(sparklyr)
-library(dplyr)
+require(sparklyr)
 ```
 
+    ## Loading required package: sparklyr
+
+``` r
+# tried to install the version 2.1.0
+# sparklyr::spark_install(version = "2.1.0")
+# But got a error message:
+# Error in spark_install_find(version, hadoop_version, installedOnly = FALSE,  : Spark version not available.
+
+# checke the spark version available for installation from sparklyr 
+# spark_available_versions()
+# Error in file(file, "rt") : cannot open the connection
+
+# there is no 2.1.0 so chose spark 2.0.2, hadoop: 2.7
+spark_install(version = "2.0.2", hadoop_version = 2.7, reset = TRUE, logging = "INFO", verbose = interactive())
+
+# Installing Spark 2.0.2 for Hadoop 2.7 or later.
+# Downloading from:- 'https://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz'
+# Installing to:- 'C:\Users\lzq\AppData\Local\rstudio\spark\Cache/spark-2.0.2-bin-hadoop2.7'
+# trying URL 'https://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz'
+# Content type 'application/x-tar' length 187426587 bytes (178.7 MB)
+# downloaded 178.7 MB
+
+spark_installed_versions()
+```
+
+    ##   spark hadoop                       dir
+    ## 1 2.0.2    2.7 spark-2.0.2-bin-hadoop2.7
+    ## 2 2.1.0    2.7 spark-2.1.0-bin-hadoop2.7
+
+``` r
+# so in addition to Spark 2.0.2, there are 2.1.0 which installed before under the directory "C:\Users\lzq\AppData\Local\rstudio\spark\Cache"
+
+# devtools::install_github("rstudio/sparklyr") 
+# if install sparklyr from rstudio github, we will get newer version of sparklyr and Spark (such as 2.1.0) 
+```
+
+``` r
+# check the current SPARK_HOME
+Sys.getenv("SPARK_HOME")
+```
+
+    ## [1] "D:\\spark-2.1.1-bin-hadoop2.7\\bin"
+
+``` r
+#check config
+spark_config()
+```
+
+    ## $sparklyr.cores.local
+    ## [1] 4
     ## 
-    ## Attaching package: 'dplyr'
-
-    ## The following objects are masked from 'package:stats':
+    ## $spark.sql.shuffle.partitions.local
+    ## [1] 4
     ## 
-    ##     filter, lag
-
-    ## The following objects are masked from 'package:base':
+    ## $spark.env.SPARK_LOCAL_IP.local
+    ## [1] "127.0.0.1"
     ## 
-    ##     intersect, setdiff, setequal, union
+    ## $sparklyr.csv.embedded
+    ## [1] "^1.*"
+    ## 
+    ## $`sparklyr.shell.driver-class-path`
+    ## [1] ""
+    ## 
+    ## attr(,"config")
+    ## [1] "default"
+    ## attr(,"file")
+    ## [1] "D:\\R\\R-3.4.1\\library\\sparklyr\\conf\\config-template.yml"
 
 ``` r
-# sc <- spark_connect(master = "local",version = "1.6.2")
-```
+#change SPARK_HOME
+Sys.setenv(SPARK_HOME="C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
 
-### Load the data
+# connect to spark
+sc <- spark_connect(master = "local",version ="2.0.2")
 
-``` r
-# copy mtcars into spark
-# movie_tbl <- copy_to(sc, MovieLense)
-
-#sc <- spark_connect(master = "local")
-
-user = c(0, 0, 1, 1, 2, 2)
-item = c(0, 1, 1, 2, 1, 2)
-rating = c(4.0, 2.0, 3.0, 4.0, 1.0, 5.0)
-
-df <- data.frame(user = user, item = item, rating = rating)
-
-# movie_ratings <- sdf_copy_to(sc, df, "movie_rating", overwrite = TRUE)
-# movie_ratings
-```
-
-### Create an explicit model with ALS algorithm.
-
-``` r
-# explicit_model <- ml_als_factorization(movie_ratings, iter.max = 5, regularization.parameter = 0.01)
-# summary(explicit_model)
-
-# predictions <- explicit_model$.model %>%
-#  invoke("transform", spark_dataframe(movie_ratings)) %>%
-#  collect()
-
-# predictions
-```
-
-### Trainging data set will be trained with ALS algorithm
-
-``` r
-#implicit_model <- ml_als_factorization(movie_ratings, iter.max = 5, regularization.parameter = 0.01, implicit.preferences = TRUE, alpha = 1.0)
-
-#summary(implicit_model)
+# succeed ! Got the following message
+# Created default hadoop bin directory under: C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hadoop
 ```
 
 ``` r
-# implicit_predictions <- implicit_model$.model %>%
-#  invoke("transform", spark_dataframe(movie_ratings)) %>%
-#  collect()
-
-# implicit_predictions
+# verify the spark home directory
+spark_home_dir()
 ```
+
+    ## [1] "C:\\Users\\lzq\\AppData\\Local\\rstudio\\spark\\Cache/spark-2.0.2-bin-hadoop2.7"
+
+To verify the connection
 
 ``` r
-# spark_disconnect(sc)
+#iris_tbl <- copy_to(sc, iris)
+#iris_tbl
 ```
 
-### Conludsion
-
-Installation and setup of Spark took a lot of time so I only have time to build one model.
-
-once the data were loaded into Spark, the computation can be done fairely faster than in R. For large size data, Spark will be a good choice.
+I put a lot of efforts to make sparklyr work in Windows 10 but failed to wirte data into spark. I posted the issue in RStudion/sparklyr for help but did not get response yet. So I could not finish project 5 in time. I will try SparkR. Hopefully I can figure out how to use Spark in R and apply it in the final project.
