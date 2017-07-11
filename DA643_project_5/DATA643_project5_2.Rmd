@@ -9,7 +9,13 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+#### Goal 
 
+Adapt one of your recommendation systems to work with Apache Spark and compare the performance with your previous iteration. Consider the efficiency of the system and the added complexity of using Spark.  I want to use sparklyr for this project. 
+
+The question to be answered: For your given recommender system's data, algorithm(s), and (envisioned) implementation, at what point would you see moving to a distributed platform such as Spark becoming necessary?
+
+### Set up sparklyr
 ```{r,eval=F}
 install.packages("sparklyr",repos = "http://cran.us.r-project.org")
 packageVersion("sparklyr")
@@ -67,11 +73,55 @@ sc <- spark_connect(master = "local",version ="2.0.2")
 spark_home_dir()
 ```
 
-To verify the connection
+#### To verify the connection
 ```{r}
 #iris_tbl <- copy_to(sc, iris)
 #iris_tbl
 
 ```
+
+### Troubleshooting
+```{r}
+spark_log(sc)
+
+# look into the contents of the hive-site.xml Spark config 
+cat(paste(readLines(file.path(spark_home_dir(), "conf", "hive-site.xml")), collapse = "\n"))
+```
+
+####Try this.
+```{r}
+Sys.setenv(SPARK_HOME="C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
+spark_home_dir()
+
+config <- spark_config()
+hadoopBin <- paste0("file:", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
+#hadoopBin <- paste0("file://", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
+#hadoopBin <- paste0("\"", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")), "\"")
+#hadoopBin <- paste0("'", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")), "'")
+config[["spark.sql.warehouse.dir"]] <- if (.Platform$OS.type == "windows") hadoopBin else NULL
+
+hiveBin<- paste0("file://", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
+config[["hive.metastore.warehouse.dir"]] <- if (.Platform$OS.type == "windows") hiveBin else NULL
+
+sc <- spark_connect(master = "local",config = config)
+sc <- spark_connect(master = "local", config = list(spark.sql.warehouse.dir = "c:\\Users\\lzq\\AppData\\Local\\rstudio\\spark\\Cache/spark-2.0.2-bin-hadoop2.7/tmp/hadoop/bin"))
+
+#iris_tbl <- copy_to(sc, iris, overwrite = TRUE)
+```
+
+####Not working. Try this too
+```{r}
+config <- spark_config()
+config[["spark.sql.hive.thriftServer.singleSession"]] <- "true"
+sc <- spark_connect(master = "local", config = config)
+
+#iris_tbl <- copy_to(sc, iris, overwrite = TRUE)
+```
+
+```{r}
+spark_log(sc)
+
+```
+
 
 I put a lot of efforts to make sparklyr work in Windows 10 but failed to wirte data into spark. I posted the issue in RStudion/sparklyr for help but did not get response yet. So I could not finish project 5 in time. I will try SparkR. Hopefully I can figure out how to use Spark in R and apply it in the final project.
