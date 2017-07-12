@@ -3,399 +3,266 @@ DATA643\_Project5\_Spark
 Yun Mai
 July 8, 2017
 
-#### Goal
+### 1. Goal
 
-Adapt one of your recommendation systems to work with Apache Spark and compare the performance with your previous iteration. Consider the efficiency of the system and the added complexity of using Spark. I want to use sparklyr for this project.
+Adapt one of your recommendation systems to work with Apache Spark and compare the performance with your previous iteration. Consider the efficiency of the system and the added complexity of using Spark. I will use sparklyr for this project.
 
 The question to be answered: For your given recommender system's data, algorithm(s), and (envisioned) implementation, at what point would you see moving to a distributed platform such as Spark becoming necessary?
 
-### Set up sparklyr
+### 2. Installing sparklyr and Spark and Loading the Data
 
 ``` r
-install.packages("sparklyr",repos = "http://cran.us.r-project.org")
-packageVersion("sparklyr")
+install.packages("sparklyr", repos="http://cran.rstudio.com/")
 ```
 
-``` r
-require(sparklyr)
-```
+    ## package 'sparklyr' successfully unpacked and MD5 sums checked
 
-    ## Loading required package: sparklyr
+    ## Warning: cannot remove prior installation of package 'sparklyr'
 
-``` r
-# tried to install the version 2.1.0
-# sparklyr::spark_install(version = "2.1.0")
-# But got a error message:
-# Error in spark_install_find(version, hadoop_version, installedOnly = FALSE,  : Spark version not available.
-
-# checke the spark version available for installation from sparklyr 
-# spark_available_versions()
-# Error in file(file, "rt") : cannot open the connection
-
-# there is no 2.1.0 so chose spark 2.0.2, hadoop: 2.7
-spark_install(version = "2.0.2", hadoop_version = 2.7, reset = TRUE, logging = "INFO", verbose = interactive())
-
-# Installing Spark 2.0.2 for Hadoop 2.7 or later.
-# Downloading from:- 'https://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz'
-# Installing to:- 'C:\Users\lzq\AppData\Local\rstudio\spark\Cache/spark-2.0.2-bin-hadoop2.7'
-# trying URL 'https://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz'
-# Content type 'application/x-tar' length 187426587 bytes (178.7 MB)
-# downloaded 178.7 MB
-
-spark_installed_versions()
-```
-
-    ##   spark hadoop                       dir
-    ## 1 2.0.2    2.7 spark-2.0.2-bin-hadoop2.7
-    ## 2 2.1.0    2.7 spark-2.1.0-bin-hadoop2.7
-
-``` r
-# so in addition to Spark 2.0.2, there are 2.1.0 which installed before under the directory "C:\Users\lzq\AppData\Local\rstudio\spark\Cache"
-
-# devtools::install_github("rstudio/sparklyr") 
-# if install sparklyr from rstudio github, we will get newer version of sparklyr and Spark (such as 2.1.0) 
-```
-
-``` r
-# check the current SPARK_HOME
-Sys.getenv("SPARK_HOME")
-```
-
-    ## [1] "D:\\spark-2.1.1-bin-hadoop2.7\\bin"
-
-``` r
-#check config
-spark_config()
-```
-
-    ## $sparklyr.cores.local
-    ## [1] 4
     ## 
-    ## $spark.sql.shuffle.partitions.local
-    ## [1] 4
+    ## The downloaded binary packages are in
+    ##  C:\Users\lzq\AppData\Local\Temp\RtmpaasW8t\downloaded_packages
+
+**Install a local version of Spark for development purposes:**
+
+``` r
+library(sparklyr)
+spark_install(version = "2.0.2")
+```
+
+\*\*To upgrade to the latest version of sparklyr, run the following command and restart R <session:**>
+
+``` r
+library(dplyr)
+```
+
     ## 
-    ## $spark.env.SPARK_LOCAL_IP.local
-    ## [1] "127.0.0.1"
+    ## Attaching package: 'dplyr'
+
+    ## The following objects are masked from 'package:stats':
     ## 
-    ## $sparklyr.csv.embedded
-    ## [1] "^1.*"
+    ##     filter, lag
+
+    ## The following objects are masked from 'package:base':
     ## 
-    ## $`sparklyr.shell.driver-class-path`
-    ## [1] ""
+    ##     intersect, setdiff, setequal, union
+
+``` r
+devtools::install_github("rstudio/sparklyr")
+```
+
+    ## Downloading GitHub repo rstudio/sparklyr@master
+    ## from URL https://api.github.com/repos/rstudio/sparklyr/zipball/master
+
+    ## Installing sparklyr
+
+    ## "D:/R/R-34~1.1/bin/x64/R" --no-site-file --no-environ --no-save  \
+    ##   --no-restore --quiet CMD INSTALL  \
+    ##   "C:/Users/lzq/AppData/Local/Temp/RtmpaasW8t/devtools32e834a8274c/rstudio-sparklyr-ee4127f"  \
+    ##   --library="D:/R/R-3.4.1/library" --install-tests
+
     ## 
-    ## attr(,"config")
-    ## [1] "default"
-    ## attr(,"file")
-    ## [1] "D:\\R\\R-3.4.1\\library\\sparklyr\\conf\\config-template.yml"
+
+**Connect to a local instance of Spark via the spark\_connect function:**
 
 ``` r
-#change SPARK_HOME
-Sys.setenv(SPARK_HOME="C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
-
-# connect to spark
-sc <- spark_connect(master = "local",version ="2.0.2")
-
-# succeed ! Got the following message
-# Created default hadoop bin directory under: C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hadoop
+library(sparklyr)
 ```
+
+    ## 
+    ## Attaching package: 'sparklyr'
+
+    ## The following object is masked from 'package:dplyr':
+    ## 
+    ##     top_n
 
 ``` r
-# verify the spark home directory
-spark_home_dir()
+# Change SPARK_HOME and JAVA_HOME to accommodate sparklyr as they might be set as different directory for scela and SparkR
+Sys.setenv(JAVA_HOME = "C:/Java/jre1.8.0_131")
+Sys.setenv(SPARK_HOME = "C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
+
+sc <- spark_connect(master = "local")
 ```
 
-    ## [1] "C:\\Users\\lzq\\AppData\\Local\\rstudio\\spark\\Cache/spark-2.0.2-bin-hadoop2.7"
+The returned Spark connection (sc) provides a remote dplyr data source to the Spark cluster.
 
-#### To verify the connection
+\*\* To verify the connection\*\*
 
 ``` r
-#iris_tbl <- copy_to(sc, iris)
-#iris_tbl
+library(dplyr)
+iris <- iris
+iris_tbl <- copy_to(sc, iris)
 ```
 
-### Troubleshooting
+### 3. Building a Recommender System using Singular Value Decompositionon with recommenderlab
+
+#### 3.1 Load the packages and data
 
 ``` r
-spark_log(sc)
+suppressWarnings(suppressMessages(library(recommenderlab)))
+suppressWarnings(suppressMessages(library(knitr)))
+suppressWarnings(suppressMessages(library(tidyr)))
+suppressWarnings(suppressMessages(library(ggplot2)))
+data(MovieLense)
 ```
 
-    ## 17/07/11 10:17:15 INFO NettyBlockTransferService: Server created on 192.168.1.151:63513
-    ## 17/07/11 10:17:15 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 192.168.1.151, 63513)
-    ## 17/07/11 10:17:15 INFO BlockManagerMasterEndpoint: Registering block manager 192.168.1.151:63513 with 413.9 MB RAM, BlockManagerId(driver, 192.168.1.151, 63513)
-    ## 17/07/11 10:17:15 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 192.168.1.151, 63513)
-    ## 17/07/11 10:17:15 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:17:15 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:17:15 INFO HiveSharedState: Warehouse path is 'C:UserslzqAppDataLocal
-    ## studiosparkCachespark-2.0.2-bin-hadoop2.7    mphive'.
-    ## 17/07/11 10:17:17 INFO SparkContext: Invoking stop() from shutdown hook
-    ## 17/07/11 10:17:17 INFO SparkUI: Stopped Spark web UI at http://192.168.1.151:4041
-    ## 17/07/11 10:17:17 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
-    ## 17/07/11 10:17:17 INFO MemoryStore: MemoryStore cleared
-    ## 17/07/11 10:17:17 INFO BlockManager: BlockManager stopped
-    ## 17/07/11 10:17:17 INFO BlockManagerMaster: BlockManagerMaster stopped
-    ## 17/07/11 10:17:17 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
-    ## 17/07/11 10:17:17 INFO SparkContext: Successfully stopped SparkContext
-    ## 17/07/11 10:17:17 INFO ShutdownHookManager: Shutdown hook called
-    ## 17/07/11 10:17:17 INFO ShutdownHookManager: Deleting directory C:\Users\lzq\AppData\Local\Temp\spark-ae9c7485-3a82-49b1-8ddb-6df475d34c6f
-    ## 17/07/11 10:17:19 INFO SparkContext: Invoking stop() from shutdown hook
-    ## 17/07/11 10:17:19 INFO SparkUI: Stopped Spark web UI at http://127.0.0.1:4040
-    ## 17/07/11 10:17:19 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
-    ## 17/07/11 10:17:19 INFO MemoryStore: MemoryStore cleared
-    ## 17/07/11 10:17:19 INFO BlockManager: BlockManager stopped
-    ## 17/07/11 10:17:19 INFO BlockManagerMaster: BlockManagerMaster stopped
-    ## 17/07/11 10:17:19 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
-    ## 17/07/11 10:17:19 INFO SparkContext: Successfully stopped SparkContext
-    ## 17/07/11 10:17:19 INFO ShutdownHookManager: Shutdown hook called
-    ## 17/07/11 10:17:19 INFO ShutdownHookManager: Deleting directory C:\Users\lzq\AppData\Local\Temp\spark-2fe40a61-3bc3-460e-b5b2-9fc03c46face
-    ## 17/07/11 10:18:41 INFO SparkContext: Running Spark version 2.0.2
-    ## 17/07/11 10:18:41 ERROR Shell: Failed to locate the winutils binary in the hadoop binary path
-    ## java.io.IOException: Could not locate executable C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hadoop\bin\bin\winutils.exe in the Hadoop binaries.
-    ##  at org.apache.hadoop.util.Shell.getQualifiedBinPath(Shell.java:379)
-    ##  at org.apache.hadoop.util.Shell.getWinUtilsPath(Shell.java:394)
-    ##  at org.apache.hadoop.util.Shell.<clinit>(Shell.java:387)
-    ##  at org.apache.hadoop.util.StringUtils.<clinit>(StringUtils.java:80)
-    ##  at org.apache.hadoop.security.SecurityUtil.getAuthenticationMethod(SecurityUtil.java:611)
-    ##  at org.apache.hadoop.security.UserGroupInformation.initialize(UserGroupInformation.java:273)
-    ##  at org.apache.hadoop.security.UserGroupInformation.ensureInitialized(UserGroupInformation.java:261)
-    ##  at org.apache.hadoop.security.UserGroupInformation.loginUserFromSubject(UserGroupInformation.java:791)
-    ##  at org.apache.hadoop.security.UserGroupInformation.getLoginUser(UserGroupInformation.java:761)
-    ##  at org.apache.hadoop.security.UserGroupInformation.getCurrentUser(UserGroupInformation.java:634)
-    ##  at org.apache.spark.util.Utils$$anonfun$getCurrentUserName$1.apply(Utils.scala:2345)
-    ##  at org.apache.spark.util.Utils$$anonfun$getCurrentUserName$1.apply(Utils.scala:2345)
-    ##  at scala.Option.getOrElse(Option.scala:121)
-    ##  at org.apache.spark.util.Utils$.getCurrentUserName(Utils.scala:2345)
-    ##  at org.apache.spark.SparkContext.<init>(SparkContext.scala:294)
-    ##  at org.apache.spark.SparkContext$.getOrCreate(SparkContext.scala:2258)
-    ##  at org.apache.spark.SparkContext.getOrCreate(SparkContext.scala)
-    ##  at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-    ##  at sun.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)
-    ##  at sun.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)
-    ##  at java.lang.reflect.Method.invoke(Unknown Source)
-    ##  at sparklyr.Invoke$.invoke(invoke.scala:94)
-    ##  at sparklyr.StreamHandler$.handleMethodCall(stream.scala:89)
-    ##  at sparklyr.StreamHandler$.read(stream.scala:55)
-    ##  at sparklyr.BackendHandler.channelRead0(handler.scala:49)
-    ##  at sparklyr.BackendHandler.channelRead0(handler.scala:14)
-    ##  at io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:308)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:294)
-    ##  at io.netty.handler.codec.MessageToMessageDecoder.channelRead(MessageToMessageDecoder.java:103)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:308)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:294)
-    ##  at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:244)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:308)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:294)
-    ##  at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:846)
-    ##  at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:131)
-    ##  at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:511)
-    ##  at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:468)
-    ##  at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:382)
-    ##  at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:354)
-    ##  at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:111)
-    ##  at io.netty.util.concurrent.DefaultThreadFactory$DefaultRunnableDecorator.run(DefaultThreadFactory.java:137)
-    ##  at java.lang.Thread.run(Unknown Source)
-    ## 17/07/11 10:18:41 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing view acls to: lzq
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing modify acls to: lzq
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing view acls groups to: 
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing modify acls groups to: 
-    ## 17/07/11 10:18:42 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users  with view permissions: Set(lzq); groups with view permissions: Set(); users  with modify permissions: Set(lzq); groups with modify permissions: Set()
-    ## 17/07/11 10:18:42 INFO Utils: Successfully started service 'sparkDriver' on port 63762.
-    ## 17/07/11 10:18:42 INFO SparkEnv: Registering MapOutputTracker
-    ## 17/07/11 10:18:42 INFO SparkEnv: Registering BlockManagerMaster
-    ## 17/07/11 10:18:42 INFO DiskBlockManager: Created local directory at C:\Users\lzq\AppData\Local\Temp\blockmgr-64509ed9-4ce4-4e8c-8ea8-c54280ccd575
-    ## 17/07/11 10:18:42 INFO MemoryStore: MemoryStore started with capacity 413.9 MB
-    ## 17/07/11 10:18:42 INFO SparkEnv: Registering OutputCommitCoordinator
-    ## 17/07/11 10:18:42 INFO Utils: Successfully started service 'SparkUI' on port 4040.
-    ## 17/07/11 10:18:42 INFO SparkUI: Bound SparkUI to 127.0.0.1, and started at http://127.0.0.1:4040
-    ## 17/07/11 10:18:42 INFO SparkContext: Added JAR file:/D:/R/R-3.4.1/library/sparklyr/java/sparklyr-2.0-2.11.jar at spark://127.0.0.1:63762/jars/sparklyr-2.0-2.11.jar with timestamp 1499782722652
-    ## 17/07/11 10:18:42 INFO Executor: Starting executor ID driver on host localhost
-    ## 17/07/11 10:18:42 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 63783.
-    ## 17/07/11 10:18:42 INFO NettyBlockTransferService: Server created on 127.0.0.1:63783
-    ## 17/07/11 10:18:42 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 127.0.0.1, 63783)
-    ## 17/07/11 10:18:42 INFO BlockManagerMasterEndpoint: Registering block manager 127.0.0.1:63783 with 413.9 MB RAM, BlockManagerId(driver, 127.0.0.1, 63783)
-    ## 17/07/11 10:18:42 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 127.0.0.1, 63783)
-    ## 17/07/11 10:18:43 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:18:43 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:18:43 INFO HiveSharedState: Warehouse path is 'C:UserslzqAppDataLocal
-    ## studiosparkCachespark-2.0.2-bin-hadoop2.7    mphive'.
+#### 3.2 Basic model
 
 ``` r
-# look into the contents of the hive-site.xml Spark config 
-cat(paste(readLines(file.path(spark_home_dir(), "conf", "hive-site.xml")), collapse = "\n"))
+# check if there is abnormal ratings in the data
+table(MovieLense@data@x[] > 5)
 ```
 
-    ## <configuration>
-    ##   <property>
-    ##     <name>javax.jdo.option.ConnectionURL</name>
-    ##     <value>jdbc:derby:memory:databaseName=metastore_db;create=true</value>
-    ##   </property>
-    ##   <property>
-    ##     <name>javax.jdo.option.ConnectionDriverName</name>
-    ##     <value>org.apache.derby.jdbc.EmbeddedDriver</value>
-    ##   </property>
-    ##   <property>
-    ##     <name>hive.exec.scratchdir</name>
-    ##     <value>C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hive</value>
-    ##   </property>
-    ##   <property>
-    ##     <name>hive.exec.local.scratchdir</name>
-    ##     <value>C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hive</value>
-    ##   </property>
-    ##   <property>
-    ##     <name>hive.metastore.warehouse.dir</name>
-    ##     <value>C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hive</value>
-    ##   </property>
-    ## </configuration>
-
-#### Try this.
+    ## 
+    ## FALSE 
+    ## 99392
 
 ``` r
-Sys.setenv(SPARK_HOME="C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
-spark_home_dir()
+table(MovieLense@data@x[] < 1)
 ```
 
-    ## [1] "C:\\Users\\lzq\\AppData\\Local\\rstudio\\spark\\Cache/spark-2.0.2-bin-hadoop2.7"
+    ## 
+    ## FALSE 
+    ## 99392
 
 ``` r
-config <- spark_config()
-hadoopBin <- paste0("file:", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
-#hadoopBin <- paste0("file://", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
-#hadoopBin <- paste0("\"", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")), "\"")
-#hadoopBin <- paste0("'", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")), "'")
-config[["spark.sql.warehouse.dir"]] <- if (.Platform$OS.type == "windows") hadoopBin else NULL
+######################### SVD ############################
 
-hiveBin<- paste0("file://", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
-config[["hive.metastore.warehouse.dir"]] <- if (.Platform$OS.type == "windows") hiveBin else NULL
-
-sc <- spark_connect(master = "local",config = config)
+# Create and maintain evaluation schemes; divide the data into 90% training 10% test
+div <- evaluationScheme(MovieLense, method="split", train = 0.9, k=10, given = 15, goodRating = 3)
+div
 ```
 
-    ## Re-using existing Spark connection to local
+    ## Evaluation scheme with 15 items given
+    ## Method: 'split' with 10 run(s).
+    ## Training set proportion: 0.900
+    ## Good ratings: >=3.000000
+    ## Data set: 943 x 1664 rating matrix of class 'realRatingMatrix' with 99392 ratings.
 
 ``` r
-sc <- spark_connect(master = "local", config = list(spark.sql.warehouse.dir = "c:\\Users\\lzq\\AppData\\Local\\rstudio\\spark\\Cache/spark-2.0.2-bin-hadoop2.7/tmp/hadoop/bin"))
+# Create the recommender based on SVD algorithm using the training data
+r.svd <- Recommender(getData(div, "train"), "SVD", parameter = list(k=50, maxiter = 100, normalize = "Z-score"))
 
-#iris_tbl <- copy_to(sc, iris, overwrite = TRUE)
+# Compute predicted ratings for test data that is known using the UBCF algorithm
+p.svd <- predict(r.svd, getData(div, "known"), type = "ratings")
+# Created evaluation scheme to evaluate the recommender method SVD
+results <- evaluate(div, method="SVD", type = "topNList", n=c(1,3,5,10,15,20))
 ```
 
-#### Not working. Try this too
+    ## SVD run fold/sample [model time/prediction time]
+    ##   1  [1.19sec/0.28sec] 
+    ##   2  [0.43sec/0.3sec] 
+    ##   3  [0.27sec/0.44sec] 
+    ##   4  [0.22sec/0.29sec] 
+    ##   5  [0.43sec/0.26sec] 
+    ##   6  [0.22sec/0.45sec] 
+    ##   7  [0.23sec/0.26sec] 
+    ##   8  [0.44sec/0.24sec] 
+    ##   9  [0.42sec/0.26sec] 
+    ##   10  [0.25sec/0.25sec]
 
 ``` r
-config <- spark_config()
-config[["spark.sql.hive.thriftServer.singleSession"]] <- "true"
-sc <- spark_connect(master = "local", config = config)
+# Show the top 6 movies for 6 users
+getRatingMatrix(p.svd)[1:6,1:6]
 ```
 
-    ## Re-using existing Spark connection to local
+    ## 6 x 6 sparse Matrix of class "dgCMatrix"
+    ##    Toy Story (1995) GoldenEye (1995) Four Rooms (1995) Get Shorty (1995)
+    ## 7          4.137323         4.151321          4.180323          4.234680
+    ## 19         3.585767         3.673531          3.625392          .       
+    ## 27         3.108214         3.091353          3.077586          3.211699
+    ## 31         3.872994         3.896926          3.850274          3.905186
+    ## 40         2.305568         2.343640          2.361140          2.392548
+    ## 41         3.764588         3.656159          3.656890          3.654702
+    ##    Copycat (1995) Shanghai Triad (Yao a yao yao dao waipo qiao) (1995)
+    ## 7        4.212309                                             4.214174
+    ## 19       3.635150                                             3.657766
+    ## 27       3.107028                                             3.144963
+    ## 31       3.815304                                             3.869124
+    ## 40       2.327163                                             2.337902
+    ## 41       3.667307                                             3.660873
 
 ``` r
-#iris_tbl <- copy_to(sc, iris, overwrite = TRUE)
+# Calculate the error between training prediction and unknown test data
+error <- data.frame(SVD = calcPredictionAccuracy(p.svd, getData(div, "unknown")))
+kable(error)
 ```
+
+|      |        SVD|
+|------|----------:|
+| RMSE |  1.0491261|
+| MSE  |  1.1006656|
+| MAE  |  0.8438333|
+
+Next, I will use machine learning functuion in spraklyr to build the recommendtions system. There is no svd algorithm in spraklyr. But Principal Component Analysis (PCA) is a simple application of SVD, which is availabe in spraklyr machine learning fuction, so I will use PCA.
+
+### 4. Building a Recommender System under Spark environment
+
+Principal Component Analysis (PCA)
 
 ``` r
-spark_log(sc)
+movie_df <- as(MovieLense, 'data.frame')
+movie_df$user <- sapply(movie_df$user,function(x) as.numeric(as.character(x)))
+movie_df$item  <- sapply(movie_df$item,function(x) as.character(x))
+movie_mx <- spread(movie_df, item, rating)
+movie_mx$user <- sapply(movie_mx$user,function(x) as.numeric(x))
+movie_mx[is.na(movie_mx)]<- 0
+
+#copy data to spark
+movie_tbl <- sdf_copy_to(sc,movie_mx, "movie_DF", overwrite=T)
+
+movies <- paste(colnames(movie_mx)[-1])
+
+pca_model <- ml_pca(movie_tbl,features = paste(colnames(movie_tbl)[2:51]))
 ```
 
-    ##  at io.netty.util.concurrent.DefaultThreadFactory$DefaultRunnableDecorator.run(DefaultThreadFactory.java:137)
-    ##  at java.lang.Thread.run(Unknown Source)
-    ## 17/07/11 10:18:41 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing view acls to: lzq
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing modify acls to: lzq
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing view acls groups to: 
-    ## 17/07/11 10:18:42 INFO SecurityManager: Changing modify acls groups to: 
-    ## 17/07/11 10:18:42 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users  with view permissions: Set(lzq); groups with view permissions: Set(); users  with modify permissions: Set(lzq); groups with modify permissions: Set()
-    ## 17/07/11 10:18:42 INFO Utils: Successfully started service 'sparkDriver' on port 63762.
-    ## 17/07/11 10:18:42 INFO SparkEnv: Registering MapOutputTracker
-    ## 17/07/11 10:18:42 INFO SparkEnv: Registering BlockManagerMaster
-    ## 17/07/11 10:18:42 INFO DiskBlockManager: Created local directory at C:\Users\lzq\AppData\Local\Temp\blockmgr-64509ed9-4ce4-4e8c-8ea8-c54280ccd575
-    ## 17/07/11 10:18:42 INFO MemoryStore: MemoryStore started with capacity 413.9 MB
-    ## 17/07/11 10:18:42 INFO SparkEnv: Registering OutputCommitCoordinator
-    ## 17/07/11 10:18:42 INFO Utils: Successfully started service 'SparkUI' on port 4040.
-    ## 17/07/11 10:18:42 INFO SparkUI: Bound SparkUI to 127.0.0.1, and started at http://127.0.0.1:4040
-    ## 17/07/11 10:18:42 INFO SparkContext: Added JAR file:/D:/R/R-3.4.1/library/sparklyr/java/sparklyr-2.0-2.11.jar at spark://127.0.0.1:63762/jars/sparklyr-2.0-2.11.jar with timestamp 1499782722652
-    ## 17/07/11 10:18:42 INFO Executor: Starting executor ID driver on host localhost
-    ## 17/07/11 10:18:42 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 63783.
-    ## 17/07/11 10:18:42 INFO NettyBlockTransferService: Server created on 127.0.0.1:63783
-    ## 17/07/11 10:18:42 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 127.0.0.1, 63783)
-    ## 17/07/11 10:18:42 INFO BlockManagerMasterEndpoint: Registering block manager 127.0.0.1:63783 with 413.9 MB RAM, BlockManagerId(driver, 127.0.0.1, 63783)
-    ## 17/07/11 10:18:42 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 127.0.0.1, 63783)
-    ## 17/07/11 10:18:43 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:18:43 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:18:43 INFO HiveSharedState: Warehouse path is 'C:UserslzqAppDataLocal
-    ## studiosparkCachespark-2.0.2-bin-hadoop2.7    mphive'.
-    ## 17/07/11 10:18:48 INFO SparkContext: Running Spark version 2.0.2
-    ## 17/07/11 10:18:48 ERROR Shell: Failed to locate the winutils binary in the hadoop binary path
-    ## java.io.IOException: Could not locate executable C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hadoop\bin\bin\winutils.exe in the Hadoop binaries.
-    ##  at org.apache.hadoop.util.Shell.getQualifiedBinPath(Shell.java:379)
-    ##  at org.apache.hadoop.util.Shell.getWinUtilsPath(Shell.java:394)
-    ##  at org.apache.hadoop.util.Shell.<clinit>(Shell.java:387)
-    ##  at org.apache.hadoop.util.StringUtils.<clinit>(StringUtils.java:80)
-    ##  at org.apache.hadoop.security.SecurityUtil.getAuthenticationMethod(SecurityUtil.java:611)
-    ##  at org.apache.hadoop.security.UserGroupInformation.initialize(UserGroupInformation.java:273)
-    ##  at org.apache.hadoop.security.UserGroupInformation.ensureInitialized(UserGroupInformation.java:261)
-    ##  at org.apache.hadoop.security.UserGroupInformation.loginUserFromSubject(UserGroupInformation.java:791)
-    ##  at org.apache.hadoop.security.UserGroupInformation.getLoginUser(UserGroupInformation.java:761)
-    ##  at org.apache.hadoop.security.UserGroupInformation.getCurrentUser(UserGroupInformation.java:634)
-    ##  at org.apache.spark.util.Utils$$anonfun$getCurrentUserName$1.apply(Utils.scala:2345)
-    ##  at org.apache.spark.util.Utils$$anonfun$getCurrentUserName$1.apply(Utils.scala:2345)
-    ##  at scala.Option.getOrElse(Option.scala:121)
-    ##  at org.apache.spark.util.Utils$.getCurrentUserName(Utils.scala:2345)
-    ##  at org.apache.spark.SparkContext.<init>(SparkContext.scala:294)
-    ##  at org.apache.spark.SparkContext$.getOrCreate(SparkContext.scala:2258)
-    ##  at org.apache.spark.SparkContext.getOrCreate(SparkContext.scala)
-    ##  at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-    ##  at sun.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)
-    ##  at sun.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)
-    ##  at java.lang.reflect.Method.invoke(Unknown Source)
-    ##  at sparklyr.Invoke$.invoke(invoke.scala:94)
-    ##  at sparklyr.StreamHandler$.handleMethodCall(stream.scala:89)
-    ##  at sparklyr.StreamHandler$.read(stream.scala:55)
-    ##  at sparklyr.BackendHandler.channelRead0(handler.scala:49)
-    ##  at sparklyr.BackendHandler.channelRead0(handler.scala:14)
-    ##  at io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:308)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:294)
-    ##  at io.netty.handler.codec.MessageToMessageDecoder.channelRead(MessageToMessageDecoder.java:103)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:308)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:294)
-    ##  at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:244)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:308)
-    ##  at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:294)
-    ##  at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:846)
-    ##  at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:131)
-    ##  at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:511)
-    ##  at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:468)
-    ##  at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:382)
-    ##  at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:354)
-    ##  at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:111)
-    ##  at io.netty.util.concurrent.DefaultThreadFactory$DefaultRunnableDecorator.run(DefaultThreadFactory.java:137)
-    ##  at java.lang.Thread.run(Unknown Source)
-    ## 17/07/11 10:18:48 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
-    ## 17/07/11 10:18:49 INFO SecurityManager: Changing view acls to: lzq
-    ## 17/07/11 10:18:49 INFO SecurityManager: Changing modify acls to: lzq
-    ## 17/07/11 10:18:49 INFO SecurityManager: Changing view acls groups to: 
-    ## 17/07/11 10:18:49 INFO SecurityManager: Changing modify acls groups to: 
-    ## 17/07/11 10:18:49 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users  with view permissions: Set(lzq); groups with view permissions: Set(); users  with modify permissions: Set(lzq); groups with modify permissions: Set()
-    ## 17/07/11 10:18:49 INFO Utils: Successfully started service 'sparkDriver' on port 63811.
-    ## 17/07/11 10:18:49 INFO SparkEnv: Registering MapOutputTracker
-    ## 17/07/11 10:18:49 INFO SparkEnv: Registering BlockManagerMaster
-    ## 17/07/11 10:18:49 INFO DiskBlockManager: Created local directory at C:\Users\lzq\AppData\Local\Temp\blockmgr-f0af8e7e-bd02-41c4-8bb7-96e86a6bee94
-    ## 17/07/11 10:18:49 INFO MemoryStore: MemoryStore started with capacity 413.9 MB
-    ## 17/07/11 10:18:49 INFO SparkEnv: Registering OutputCommitCoordinator
-    ## 17/07/11 10:18:49 WARN Utils: Service 'SparkUI' could not bind on port 4040. Attempting port 4041.
-    ## 17/07/11 10:18:49 INFO Utils: Successfully started service 'SparkUI' on port 4041.
-    ## 17/07/11 10:18:49 INFO SparkUI: Bound SparkUI to 0.0.0.0, and started at http://192.168.1.151:4041
-    ## 17/07/11 10:18:49 INFO SparkContext: Added JAR file:/D:/R/R-3.4.1/library/sparklyr/java/sparklyr-2.0-2.11.jar at spark://192.168.1.151:63811/jars/sparklyr-2.0-2.11.jar with timestamp 1499782729670
-    ## 17/07/11 10:18:49 INFO Executor: Starting executor ID driver on host localhost
-    ## 17/07/11 10:18:49 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 63820.
-    ## 17/07/11 10:18:49 INFO NettyBlockTransferService: Server created on 192.168.1.151:63820
-    ## 17/07/11 10:18:49 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 192.168.1.151, 63820)
-    ## 17/07/11 10:18:49 INFO BlockManagerMasterEndpoint: Registering block manager 192.168.1.151:63820 with 413.9 MB RAM, BlockManagerId(driver, 192.168.1.151, 63820)
-    ## 17/07/11 10:18:49 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 192.168.1.151, 63820)
-    ## 17/07/11 10:18:50 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:18:50 WARN SparkContext: Use an existing SparkContext, some configuration may not take effect.
-    ## 17/07/11 10:18:50 INFO HiveSharedState: Warehouse path is 'C:UserslzqAppDataLocal
-    ## studiosparkCachespark-2.0.2-bin-hadoop2.7    mphive'.
+    ## * No rows dropped by 'na.omit' call
 
-I put a lot of efforts to make sparklyr work in Windows 10 but failed to wirte data into spark. I posted the issue in RStudion/sparklyr for help but did not get response yet. So I could not finish project 5 in time. I will try SparkR. Hopefully I can figure out how to use Spark in R and apply it in the final project.
+``` r
+pca_df <-as.data.frame(pca_model$components)
+
+suppressWarnings(suppressMessages(library(tibble)))
+pca_df <-rownames_to_column(pca_df,var = "title")
+head(pca_df[,1:6])
+```
+
+    ##                       title           PC1          PC2          PC3
+    ## 1    Til_There_Was_You_1997 -0.0045006726  0.009503177  0.005508996
+    ## 2                 1900_1994 -0.0013667635 -0.005286611 -0.001096932
+    ## 3       101_Dalmatians_1996 -0.0560940728  0.038000814 -0.056204477
+    ## 4         12_Angry_Men_1957 -0.1998470765 -0.139357050  0.337153489
+    ## 5                  187_1997 -0.0005624931  0.060056956  0.001314487
+    ## 6 2_Days_in_the_Valley_1996 -0.0525096026  0.067191572 -0.035024667
+    ##            PC4          PC5
+    ## 1  0.013649136  0.015251819
+    ## 2 -0.002857479 -0.004839243
+    ## 3  0.243564077 -0.002658952
+    ## 4  0.033926421  0.494198469
+    ## 5  0.027392024  0.023169036
+    ## 6  0.076000865  0.047623924
+
+``` r
+ggplot(pca_df, aes(x = PC1, y = PC2, color = title, label = title)) +
+  geom_point(size = 2, alpha = 0.6) +
+  labs(title = "Where the Movies Fall on the First Two Principal Components", x = paste0("PC1: ", round(pca_model$explained.variance[1], digits = 2) * 100, "% variance"),y = paste0("PC2: ", round(pca_model$explained.variance[2], digits = 2) * 100, "% variance")) +
+  guides(fill = FALSE, color = FALSE)
+```
+
+![](DATA643_project5_files/figure-markdown_github-ascii_identifiers/unnamed-chunk-9-1.png)
+
+``` r
+# movie_df_l <- sdf_copy_to(sc,movie_df, "movie_DF_long", overwrite=T)
+# Partition
+# model_data <- tbl(sc, 'movie_DF_long') 
+# partitions <- model_data %>%
+#  sdf_partition(train = .9, test = .1)
+# pca_model <- ml_pca(partitions$train,features = paste(colnames(model_data)[2:51]))
+# Predict on test set
+# predicts <- sdf_predict(pca_model, partitions$test) 
+```
+
+It took a fairly long time to run PCA algorithm. And I can not compute based on all the movies as it ran out of memory and gave me a error message. So I selected the first 50 movies to for the model. I guess using Spark will be beneficial for other algorithms such as ALS, Kmean, etc.
+
+Reference:
+
+<https://rpubs.com/Thong/data-analysis-with-r-and-spark> (Thank for this post.It helped me going to the right direction in setting up sparklyr and get sparklyr to work.)

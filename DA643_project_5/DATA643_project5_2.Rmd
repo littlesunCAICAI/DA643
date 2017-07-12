@@ -9,119 +9,141 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#### Goal 
+### 1. Goal 
 
-Adapt one of your recommendation systems to work with Apache Spark and compare the performance with your previous iteration. Consider the efficiency of the system and the added complexity of using Spark.  I want to use sparklyr for this project. 
+Adapt one of your recommendation systems to work with Apache Spark and compare the performance with your previous iteration. Consider the efficiency of the system and the added complexity of using Spark. I will use sparklyr for this project. 
 
 The question to be answered: For your given recommender system's data, algorithm(s), and (envisioned) implementation, at what point would you see moving to a distributed platform such as Spark becoming necessary?
 
-### Set up sparklyr
+### 2. Installing sparklyr and Spark and Loading the Data
+```{r}
+install.packages("sparklyr", repos="http://cran.rstudio.com/")
+```
+
+**Install a local version of Spark for development purposes:**
 ```{r,eval=F}
-install.packages("sparklyr",repos = "http://cran.us.r-project.org")
-packageVersion("sparklyr")
+library(sparklyr)
+spark_install(version = "2.0.2")
 ```
+
+**To upgrade to the latest version of sparklyr, run the following command and restart R session:**
+```{r}
+library(dplyr)
+devtools::install_github("rstudio/sparklyr")
+```
+
+
+
+**Connect to a local instance of Spark via the spark_connect function:**
+```{r}
+library(sparklyr)
+
+# Change SPARK_HOME and JAVA_HOME to accommodate sparklyr as they might be set as different directory for scela and SparkR
+Sys.setenv(JAVA_HOME = "C:/Java/jre1.8.0_131")
+Sys.setenv(SPARK_HOME = "C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
+
+sc <- spark_connect(master = "local")
+```
+
+The returned Spark connection (sc) provides a remote dplyr data source to the Spark cluster.
+
+
+** To verify the connection**
+```{r}
+library(dplyr)
+iris <- iris
+iris_tbl <- copy_to(sc, iris)
+```
+
+### 3. Building a Recommender System using Singular Value Decompositionon with recommenderlab 
+
+#### 3.1 Load the packages and data
 
 ```{r}
-require(sparklyr)
-
-# tried to install the version 2.1.0
-# sparklyr::spark_install(version = "2.1.0")
-# But got a error message:
-# Error in spark_install_find(version, hadoop_version, installedOnly = FALSE,  : Spark version not available.
-
-# checke the spark version available for installation from sparklyr 
-# spark_available_versions()
-# Error in file(file, "rt") : cannot open the connection
-
-# there is no 2.1.0 so chose spark 2.0.2, hadoop: 2.7
-spark_install(version = "2.0.2", hadoop_version = 2.7, reset = TRUE, logging = "INFO", verbose = interactive())
-
-# Installing Spark 2.0.2 for Hadoop 2.7 or later.
-# Downloading from:- 'https://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz'
-# Installing to:- 'C:\Users\lzq\AppData\Local\rstudio\spark\Cache/spark-2.0.2-bin-hadoop2.7'
-# trying URL 'https://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz'
-# Content type 'application/x-tar' length 187426587 bytes (178.7 MB)
-# downloaded 178.7 MB
-
-spark_installed_versions()
-# so in addition to Spark 2.0.2, there are 2.1.0 which installed before under the directory "C:\Users\lzq\AppData\Local\rstudio\spark\Cache"
-
-# devtools::install_github("rstudio/sparklyr") 
-# if install sparklyr from rstudio github, we will get newer version of sparklyr and Spark (such as 2.1.0) 
+suppressWarnings(suppressMessages(library(recommenderlab)))
+suppressWarnings(suppressMessages(library(knitr)))
+suppressWarnings(suppressMessages(library(tidyr)))
+suppressWarnings(suppressMessages(library(ggplot2)))
+data(MovieLense)
 ```
+
+#### 3.2 Basic model 
 
 ```{r}
-# check the current SPARK_HOME
-Sys.getenv("SPARK_HOME")
-
-#check config
-spark_config()
+# check if there is abnormal ratings in the data
+table(MovieLense@data@x[] > 5)
+table(MovieLense@data@x[] < 1)
 ```
-```{r}
-#change SPARK_HOME
-Sys.setenv(SPARK_HOME="C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
 
-# connect to spark
-sc <- spark_connect(master = "local",version ="2.0.2")
-
-# succeed ! Got the following message
-# Created default hadoop bin directory under: C:\Users\lzq\AppData\Local\rstudio\spark\Cache\spark-2.0.2-bin-hadoop2.7\tmp\hadoop
-```
 
 ```{r}
-# verify the spark home directory
-spark_home_dir()
+######################### SVD ############################
+
+# Create and maintain evaluation schemes; divide the data into 90% training 10% test
+div <- evaluationScheme(MovieLense, method="split", train = 0.9, k=10, given = 15, goodRating = 3)
+div
+
+# Create the recommender based on SVD algorithm using the training data
+r.svd <- Recommender(getData(div, "train"), "SVD", parameter = list(k=50, maxiter = 100, normalize = "Z-score"))
+
+# Compute predicted ratings for test data that is known using the UBCF algorithm
+p.svd <- predict(r.svd, getData(div, "known"), type = "ratings")
+# Created evaluation scheme to evaluate the recommender method SVD
+results <- evaluate(div, method="SVD", type = "topNList", n=c(1,3,5,10,15,20))
+
+# Show the top 6 movies for 6 users
+getRatingMatrix(p.svd)[1:6,1:6]
+
+# Calculate the error between training prediction and unknown test data
+error <- data.frame(SVD = calcPredictionAccuracy(p.svd, getData(div, "unknown")))
+kable(error)
 ```
 
-#### To verify the connection
+Next, I will use machine learning functuion in spraklyr to build the recommendtions system. There is no svd algorithm in spraklyr. But Principal Component Analysis (PCA) is a simple application of SVD,  which is availabe in spraklyr machine learning fuction, so I will use PCA. 
+
+### 4. Building a Recommender System under Spark environment 
+
+Principal Component Analysis (PCA)
 ```{r}
-#iris_tbl <- copy_to(sc, iris)
-#iris_tbl
+movie_df <- as(MovieLense, 'data.frame')
+movie_df$user <- sapply(movie_df$user,function(x) as.numeric(as.character(x)))
+movie_df$item  <- sapply(movie_df$item,function(x) as.character(x))
+movie_mx <- spread(movie_df, item, rating)
+movie_mx$user <- sapply(movie_mx$user,function(x) as.numeric(x))
+movie_mx[is.na(movie_mx)]<- 0
 
-```
+#copy data to spark
+movie_tbl <- sdf_copy_to(sc,movie_mx, "movie_DF", overwrite=T)
 
-### Troubleshooting
-```{r}
-spark_log(sc)
+movies <- paste(colnames(movie_mx)[-1])
 
-# look into the contents of the hive-site.xml Spark config 
-cat(paste(readLines(file.path(spark_home_dir(), "conf", "hive-site.xml")), collapse = "\n"))
-```
+pca_model <- ml_pca(movie_tbl,features = paste(colnames(movie_tbl)[2:51]))
 
-####Try this.
-```{r}
-Sys.setenv(SPARK_HOME="C:/Users/lzq/AppData/Local/rstudio/spark/Cache/spark-2.0.2-bin-hadoop2.7")
-spark_home_dir()
+pca_df <-as.data.frame(pca_model$components)
 
-config <- spark_config()
-hadoopBin <- paste0("file:", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
-#hadoopBin <- paste0("file://", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
-#hadoopBin <- paste0("\"", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")), "\"")
-#hadoopBin <- paste0("'", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")), "'")
-config[["spark.sql.warehouse.dir"]] <- if (.Platform$OS.type == "windows") hadoopBin else NULL
+suppressWarnings(suppressMessages(library(tibble)))
+pca_df <-rownames_to_column(pca_df,var = "title")
+head(pca_df[,1:6])
 
-hiveBin<- paste0("file://", normalizePath(file.path(spark_home_dir(), "tmp", "hadoop", "bin")))
-config[["hive.metastore.warehouse.dir"]] <- if (.Platform$OS.type == "windows") hiveBin else NULL
+ggplot(pca_df, aes(x = PC1, y = PC2, color = title, label = title)) +
+  geom_point(size = 2, alpha = 0.6) +
+  labs(title = "Where the Movies Fall on the First Two Principal Components", x = paste0("PC1: ", round(pca_model$explained.variance[1], digits = 2) * 100, "% variance"),y = paste0("PC2: ", round(pca_model$explained.variance[2], digits = 2) * 100, "% variance")) +
+  guides(fill = FALSE, color = FALSE)
+  
 
-sc <- spark_connect(master = "local",config = config)
-sc <- spark_connect(master = "local", config = list(spark.sql.warehouse.dir = "c:\\Users\\lzq\\AppData\\Local\\rstudio\\spark\\Cache/spark-2.0.2-bin-hadoop2.7/tmp/hadoop/bin"))
-
-#iris_tbl <- copy_to(sc, iris, overwrite = TRUE)
-```
-
-####Not working. Try this too
-```{r}
-config <- spark_config()
-config[["spark.sql.hive.thriftServer.singleSession"]] <- "true"
-sc <- spark_connect(master = "local", config = config)
-
-#iris_tbl <- copy_to(sc, iris, overwrite = TRUE)
-```
-
-```{r}
-spark_log(sc)
-
+# movie_df_l <- sdf_copy_to(sc,movie_df, "movie_DF_long", overwrite=T)
+# Partition
+# model_data <- tbl(sc, 'movie_DF_long') 
+# partitions <- model_data %>%
+#  sdf_partition(train = .9, test = .1)
+# pca_model <- ml_pca(partitions$train,features = paste(colnames(model_data)[2:51]))
+# Predict on test set
+# predicts <- sdf_predict(pca_model, partitions$test) 
 ```
 
 
-I put a lot of efforts to make sparklyr work in Windows 10 but failed to wirte data into spark. I posted the issue in RStudion/sparklyr for help but did not get response yet. So I could not finish project 5 in time. I will try SparkR. Hopefully I can figure out how to use Spark in R and apply it in the final project.
+It took a fairly long time to run PCA algorithm. And I can not compute based on all the movies as it ran out of memory and gave me a error message. So I selected the first 50 movies to for the model. I guess using Spark will be beneficial for other algorithms such as ALS, Kmean, etc.
+
+Reference:
+ 
+https://rpubs.com/Thong/data-analysis-with-r-and-spark (Thank for this post.It helped me going to the right direction in setting up sparklyr and get sparklyr to work.)
