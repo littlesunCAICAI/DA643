@@ -2,7 +2,8 @@
 title: 'DATA643 Final Project: Restaurant Recommendation System'
 author: "Yun Mai, Kelly Shaffer"
 date: "July 16, 2017"
-output: github_document
+output: html_document
+           
 ---
 
 ```{r setup, include=FALSE}
@@ -723,8 +724,3 @@ unexpected_ratings <- filter(usefulness_df, restaurant_id  %in% unexpected_1 ) %
 
 5. Qiuxia Lu, Tianqi Chen, Weinan Zhang, Diyi Yang, Yong Yu.Serendipitous Personalized Ranking for Top-N Recommendation.Proceeding WI-IAT '12 Proceedings of the 2012 IEEE/WIC/ACM International Joint Conferences on Web Intelligence and Intelligent Agent Technology, Volume 01, 258-265 (2012).
 
-
-
-```{r}
-
-```
