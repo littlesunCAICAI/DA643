@@ -1,5 +1,5 @@
 ---
-title: 'DATA643 Final Project: Yelp Recommendation System'
+title: 'DATA643 Final Project: Restaurant Recommendation System'
 author: "Yun Mai, Kelly Shaffer"
 date: "July 16, 2017"
 output: github_document
@@ -11,24 +11,34 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #Restaurant Recommendation System based on Yelp data
  
-### 1.Introduction
+### 1. Introduction
  
 As modern consumers, we greatly benefit from restaurant recommendation applications. It is so convenient to get a list of restaurants that match our preferences without much clicking, comparing, and browsing through a long list of reviews for each single business.
  
-In this project, we want to apply the algorithms to develop predictive models learned from the DATA643 course "of "Current Topic of Data Science - Recommendation System"" to build a restaurant recommendation system that suggests the most suitable restaurant for users. If time permits, we will build an application.
+In this project, we want to apply the algorithms to develop predictive models learned from the DATA643 course "of "Current Topic of Data Science - Recommendation System"" to build a restaurant recommendation system that suggests the most suitable restaurant for users.
  
-### 2.Motivation
+### 2. Motivation
  
-It is very common that we hang out with families, friends, and coworkers when comes to lunch or dinner time. As the users of recommendation applications, we care more about how we will like a restaurant. We will tend to have happier experiences when the prediction of the recommendation system is as good as what it says. As there is a completed and big data set of user and restaurants reviews, we want to see whether we can use the latest techniques to make good predictions. In the data set, there are not only reviews but also relevant information of users and restaurants that allow us to do more complicated computation, which might lead to the construction of a better model.
+It is very common that we hang out with families, friends, and coworkers when comes to lunch or dinner time. As the users of recommendation applications, people care more about how we will like a restaurant. People will tend to have happier experiences when the prediction of the recommendation system is as good as what it says. As there is a completed and big data set of user and restaurants reviews, we want to see whether we can use the latest techniques to make good predictions. In the data set, there are not only reviews but also relevant information of users and restaurants that allow us to do more complicated computation, which might lead to the construction of a better model.
+
+### 3. Aim
+
+3.1 In this project, we will use collaborative filtering algorithms to build the primary recommendation system.
+
+3.2 Location of the restaurant is an important factor to be consided when building a restaurant recommendation system. Location will be used to filter the restaurants from a top50 list.
+
+3.3 In the Yelp dataset there is more information other than only ratings. There are three criteria in reviews: funny, useful, and cool and these factors will be integrated to the primary ratings. We hope to increase the diversity and serendipity of the results of the recommendation system.
  
-### 3.Dataset 
-In this project, we will use a Yelp Dataset Challenge round 9 from yelp website. The dataset has 4.1M reviews and 947K tips by 1M users for 144K businesses; 1.1M business attributes, e.g. hours, parking availability, ambience; and aggregated check-ins over time for each of the 125K businesses. The data includes diverse sets of cities: Edinburgh in U.K.; Karlsruhe in Germany; Montreal and Waterloo in Canada; Pittsburgh, Charlotte, Urbana-Champaign, Phoenix, Las Vagas, Madison, and Cleveland in U.S. 
+### 4. Dataset 
+
+In this project, we will use a Yelp Dataset Challenge round 9 from yelp website. The dataset has 4.1M reviews and 947K tips by 1M users for 144K businesses; 1.1M business attributes, e.g. hours, parking availability, ambience; and aggregated check-ins over time for each of the 125K businesses. The data includes diverse sets of cities: Edinburgh in U.K.; Karlsruhe in Germany; Montreal and Waterloo in Canada; Pittsburgh, Charlotte, Urbana-Champaign, Phoenix, Las Vagas, Madison, and Cleveland in U.S.
 
 ```{r,eval=F}
 install.packages("jsonlite",repos='http://cran.us.r-project.org')
 devtools::install_github("sailthru/tidyjson")
 install.packages("doParallel")
 install.packages(('BBmisc'))
+install.packages("DT")  
 ```
 
 Load packages
@@ -45,14 +55,13 @@ suppressWarnings(suppressMessages(library(ggplot2)))
 # user-item matrix
 suppressWarnings(suppressMessages(library(stringi)))
 suppressWarnings(suppressMessages(library(Matrix)))
-
+suppressWarnings(suppressMessages(library(DT)))
 ```
 
-#### 3.1 Load the pre-processed data 
- 
+#### 4.1 Process the raw data 
 
 ```{r,echo=F,eval=F}
-#load the pre-processed data
+#load the raw data
 business <- readRDS("E:/YM_work/CUNY_643/DATA643_final_project/Yelp_rs/business.Rds")
 
 user <- readRDS("E:/YM_work/CUNY_643/DATA643_final_project/Yelp_rs/user.Rds")
@@ -76,7 +85,6 @@ for (i in c(2:27)){
 ```
 
 
-
 ```{r,echo=F,eval=F}
 review2M <- read.csv("https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_final_project/review2M_1.csv")
 
@@ -90,11 +98,12 @@ business <- readRDS("E:/YM_work/CUNY_643/DATA643_final_project/Yelp_rs/business.
 
 user <- readRDS("E:/YM_work/CUNY_643/DATA643_final_project/Yelp_rs/user.Rds")
 
-rating <- merge(review[,-1],business[,c(1,2)], by.x='business_id',by.y='business_id')
+rating <- merge(review[,-1],business[,c('business_id','name')], by.x='business_id',by.y='business_id')
 rating <- merge(rating,user[,c(1,2)], by.x='user_id',by.y='user_id')
 colnames(rating)[which(names(rating) == "name.x")] <- "restaurant"
 colnames(rating)[which(names(rating) == "name.y")] <- "user"
-# remove duplicated data
+
+# Some user rated the same restaurant more than one times. Remove the duplicated data. 
 rating_ndup <- rating[!duplicated(rating[c('user','restaurant')]),]
 
 #write.csv(rating_ndup[1:200000,],"rating_1.csv")
@@ -121,14 +130,15 @@ write.csv(user_3,"user_3.csv")
 write.csv(user_4,"user_4.csv")
 ```
 
-#### 3.1 Explore the data 
+#### 4.2 Explore the data 
 
-Load the pre-processed data
+**Load the pre-processed data**
 ```{r}
 # read data from Github repository
 business<- read.csv("https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_final_project/business.csv")
 
 user <- read.csv("https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_final_project/user_1.csv")
+
 for (i in c(2:4)){
   a<- paste0(cat('"'),'https://raw.githubusercontent.com/YunMai-SPS/DA643/master/DA643_final_project/user_',i,'.csv',cat('"'))
   user_1 <- read.csv(a)
@@ -143,26 +153,26 @@ for (i in c(2:7)){
   rating <- rbind(rating, rating_1)
 }
 
-rating_copy <- rating
+# save a copy  
+rating_copy  <- rating
 ```
 
 
-** View the data**
-```{r}
+**View the data**
+```{r,collapse=T}
 #rearrange the column
 rating <- rating[,c("restaurant", "business_id", "user", "user_id","stars", "useful", "funny", "cool" ,"document.id")]
 
 kable(head(rating,n=5))
 # convert ratings data to realRatingMatrix for implement of recommenderlab package
 
-#check how many user and how many restaurant we have 
-#length(unique(rating[,"user"]))  [1] 63081
-#length(unique(rating[,"restaurant"])) [1] 65432
+# length(unique(rating[,"user"]))  [1] 63081
+# length(unique(rating[,"restaurant"])) [1] 65432
 
-
-#builkd the user-item matrix
-udf <- data.frame(user_No= seq(63081),user= unique(rating[,"user"]))
-idf <- data.frame(restaurant_No= seq(65432),restaurant=unique(rating[,"restaurant"]))
+       
+#build the user-item matrix
+udf <- data.frame(user_No= seq(1:length(unique(rating[,"user"]))),user= unique(rating[,"user"]))
+idf <- data.frame(restaurant_No= seq(1:length(unique(rating[,"restaurant"]))),restaurant=unique(rating[,"restaurant"]))
 
 rating <- merge(rating,udf,by.x='user',by.y='user')
 rating <- merge(rating,idf,by.x='restaurant',by.y='restaurant')
@@ -174,19 +184,32 @@ rating_mx <- sparseMatrix(
   dimnames = list(levels(rating$user_No), levels(rating$restaurant_No))
 )
 
+#converting dcGMatrix to realRatingMatrix for applyting recommenderlab
 mx <- as(rating_mx,"realRatingMatrix")
+#setting itemlabels
+colnames(mx) <- paste("R", 1:65432, sep = "")
+as(mx[1,1:10],"list")
+
+#setting userlabels
+rownames(mx) <- paste("U", 1:63081, sep = "")
+as(mx[1,1:10], "list")
 
 #Normalize by subtracting the row mean from all ratings in the row
 mx_n <- normalize(mx)
+
+#view the matrix
+getRatingMatrix(mx)[1:10,1:5]
 
 image(mx, main = "Yelp restarurant reviews Data")
 image(mx_n, main = "Normalized Yelp restarurant reviews Data")
 ```
 
 
-** Statistics of ratings data**
+**Statistics of ratings data**
 ```{r}
 # use visualize_ratings function from SVDApproximation to visualize statistics for all ratings: item count of different ratings,item histogram of users' average ratings, item histogram of items' average ratings, item histogram of number of rated items by user, item histogram of number of scores items have
+
+summary(rating[, 'stars'])
 
 #distribution of ratings
 rating_frq <- as.data.frame(table(rating$stars))
@@ -200,31 +223,129 @@ business_mean <- data.frame(restaurant = idf$restaurant, average_stars=colMeans(
 par(mfrow=c(2,2))
 
 ggplot(user,aes(review_count)) +
-  geom_histogram(binwidth = 0.05,col='red',fill="plum") + coord_cartesian(ylim=c(0,12000)) + labs(x = "User Average Reviews")+geom_vline(xintercept = mean(user$review_count),col='blue',size=1)
+  geom_histogram(binwidth = 0.05,col='red',fill="plum") + coord_cartesian(ylim=c(0,12000)) + labs(x = "User Review COunt")+geom_vline(xintercept = mean(user$review_count),col='blue',size=1)
 
 ggplot(business,aes(review_count)) +
-  geom_histogram(binwidth = 0.05,col='blue',fill="sandybrown") + coord_cartesian(ylim=c(0,7000)) + labs(x = "Restaurant Average Reviews")+geom_vline(xintercept = mean(business$review_count),col='red',size=1)
+  geom_histogram(binwidth = 0.05,col='blue',fill="sandybrown") + coord_cartesian(ylim=c(0,7000)) + labs(x = "Restaurant Review COunt")+geom_vline(xintercept = mean(business$review_count),col='red',size=1)
 
 ggplot(user,aes(average_stars)) +
-  geom_histogram(binwidth = 0.03,fill="plum")  + labs(x = "Mean of Reviews User Gives")
+  geom_histogram(binwidth = 0.03,fill="plum")  + labs(x = "User Average Review")
 ggplot(business_mean,aes(average_stars)) +
-  geom_histogram(binwidth = 0.03,fill="sandybrown") + labs(x = "Mean of Reviews Restaurant Has")
+  geom_histogram(binwidth = 0.03,fill="sandybrown") + labs(x = "Restaurant Average Review")
 ```
 
+```{r,collapse=T}
+round_r <- sum(user$average_stars == 1)+sum(user$average_stars == 2)+sum(user$average_stars == 3)+sum(user$average_stars == 4)+sum(user$average_stars == 5)
+print(paste("Total number of people who had rounded average ratings:",round_r))
+user_rate_1 <- sum(user$review_count == 1)
+user_rate_2 <- sum(user$review_count == 2)
+user_rate_3 <- sum(user$review_count == 3)
+user_rate_4 <- sum(user$review_count == 4)
+print(paste("Number of people who only rated one restaurant:",user_rate_1))
+print(paste("Number of people who only rated twice:",user_rate_2))
+print(paste("Number of people who only rated three times:",user_rate_3))
+print(paste("Number of people who only rated four times:",user_rate_4))
+print(paste("Number of people who only rated less than three times:",user_rate_1 + user_rate_2 +user_rate_3))
+```
+
+**From raw data we can see:**
+
+**1.** Rating distribution is not normal with the most frequent rating at the highest rating 5, whose frequency is much higher than other ratings. One possibility is that people who would write reviews for restaurant on Yelp are those who will view review/ratings online before deciding to try a new restaurant. So there is more chance that these people like what they chose. This suggests that the current restaurant recommendation systems work very well so it is more likely that people could find the food they like by searching on the recommender engine/application.
+
+**2.** Distribution of user review count is not normal with a average at 24. Majority people only wrote a few reviews and there are very few people wrote thousands of reviews with a maximum number at 11284.By looking at the minimum review count we knew that some people did not write any review.
+
+**3.** Distribution of user review count is not normal with a average at 28. Majority restaurant received a few reviews and there are very few restaurant received thousands of reviews with a maximum number at 6414. If we look at the minimum review count, we can see any restaurant in this data set at least got 3 reviews.
+
+**4.** The average rating for each user is multimodal distribution. The count ofaverage rating at each round number(stars) are much higher than other not rounded number. In consistant to Figure 1, average rating at 5 has the highest frequency. The possible reasons that a lot of people had a rounded average rating could either be these people only give the same rating for different restaurant and they only rated very few restaurants. It is intresting to notice that the number of people who had rounded average ratings, 405551, is close to the number of people who only rated less than three times, 412971.
+
+**5.** Similar to the user average rating, the average rating for each restaurant is multimodal distribution. In consistant to Figure 1, average rating at 5 has the highest frequency. One of the possible reason for this pattern is there were a large number of restaurant received very few ratings and ratings were the same. Another reason is that there are a lot of very good restaurants always received 5. But, is it really possible?
+
+### 5.Creating a Recommender
+
+#### 5.1 Building a User-based Collaborative Filtering Model
 
 ```{r}
+# check if there is abnormal ratings in the data
+table(mx@data@x[] > 5)
+table(mx@data@x[] < 1)
+
+# set the abnormal rating to a most closed normal number
+mx@data@x[mx@data@x[] > 5] <- 5
+
+# Keeping only restaurants with more than 50 ratings and users with more than 20 rating
+mx_r <- mx[rowCounts(mx) > 20,]
+mx_r <- mx_r[,colCounts(mx_r) > 50]
+
+# creating the evaluation scheme, separate the data into train set and test set
+set.seed(1)
+(e <- evaluationScheme(mx_r[1:1200], method = "split",train = 0.8, given = 5, goodRating = 3, k=5))
+
+# Creating a user-based collaborative filtering model using the training data.
+(r_ubcf <- Recommender(getData(e, "train"), method ="UBCF", parameter = list(method = "cosine", normalize = "Z-score", nn=25)))
+
+# release memory
+gc()
+
+# Increasing the storage capacity
+memory.limit(size=700000)
+
+names(getModel(r_ubcf))
+
+# evaluation  
+results <- evaluate(e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20))
+
+avg(results)
+
+# making predictions on ratings
+(p_rating <- predict(r_ubcf, getData(e, "known"), type="ratings",n=10))
+# show predicted ratings
+as(p_rating, "matrix")[1:10,1:7]
+# RMSE for n=10
+error <- data.frame(calcPredictionAccuracy(p_rating, getData(e, "unknown")))
+kable(error,caption="RMSE for n=10")
+
+# making predictions for User in the first row of test data set on topNList
+(p_topN <- predict(r_ubcf, mx_r[1201],type="topNList",n=10))
+
+# show predicted top10 restaurants
+(pri_rec <- as(p_topN, "list"))
+```
 
 
+In practice, we have to consider the location while designing a restaurant recommendation system. In most of the time people will use recommendation engine to find restaurant from a certain city.  
 
+```{r}
+#get city info from business data
+city <- business[,c('name','city','state')]
+city <- city[!duplicated(city$name),]
+colnames(city) <- c('restaurant','city','state')
+idf_city <- left_join(idf,city,by='restaurant')
+idf_city$restaurant_id <- paste("R", 1:65432, sep = "")
+idf_city$city <- as.character(idf_city$city)
+idf_city$state <- as.character(idf_city$state)
+
+#get 50 restaurants for User 1201 from recemmender system
+(p_top100 <- predict(r_ubcf, mx_r[1201],type="topNList",n=50))
+
+# filter the restaurant for User 1201 based on location
+pred_restaurant <-  data.frame(as(p_top100, "list"))
+colnames(pred_restaurant) <- "U1201"
+pred_restaurant[] <- lapply(pred_restaurant, as.character)
+pred_restaurant$restaurant_id <- pred_restaurant$U1201
+
+pred_restaurant <- left_join(pred_restaurant,idf_city, by='restaurant_id' )
+pred_restaurant$city <- as.character(pred_restaurant$city)
+pred_restaurant$state <- as.character(pred_restaurant$state)
+
+# For example, if user 1201 want to get recommendation for restaurants in Las vegas, we can find out from the top100 list
+Lasvegas <- filter(pred_restaurant,city == "Las Vegas")
+datatable(Lasvegas, options = list(pageLength = 5))
 ```
 
 
 
-### Algorithms
-In this project, we will use a Yelp Dataset Challenge round 9 from yelp website. The dataset has 4.1M reviews and 947K tips by 1M users for 144K businesses; 1.1M business attributes, e.g. hours, parking availability, ambience; and aggregated check-ins over time for each of the 125K businesses. The data includes diverse sets of cities: Edinburgh in U.K.; Karlsruhe in Germany; Montreal and Waterloo in Canada; Pittsburgh, Charlotte, Urbana-Champaign, Phoenix, Las Vagas, Madison, and Cleveland in U.S.
- 
-In the Yelp dataset there is more information other than only ratings, so we can not only use content-based algorithm but also collaborative filtering algorithms. Location of the restaurant is an important factor to do the recommendation, so the location will be considered so the similarity between the distance and similarity between user/items will be combined. Other algorithms like alternative linear squares and singular value decomposition will also be used to build the prediction models.
- 
+#### 5.2 Multi-Criteria Recommender System
+
 Because there are three criteria in reviews: funny, useful, and cool, the rating will be calculated as follows:
 
 $$ R: Users \times Items \to R_{0} \times R_{1} \times ...R_{k}$$
@@ -234,12 +355,375 @@ $R_{0}$ is the set of possible overall rating values, and $R_{i}$ represents the
 The prediction results of single-criteria collaborative filtering algorithm and multi-criteria collaborative filtering algorithms will be compared to decide which approach is better.
  
 The implementation and evaluation will be performed in R and Apache Spark. At last, if time permits, an application will be built with the Shiny package.
- 
+
+#### 5.2.1 Building the User-item Matrix Based on Useful, Funny, and Cool Comments
+
+**Useful Matrix**
+```{r}
+#build the user-item matrix based on funny comments
+useful_mx <- sparseMatrix(
+  i =  rating$user_No, 
+  j =  rating$restaurant_No, 
+  x = rating$useful, 
+  dimnames = list(levels(rating$user_No), levels(rating$restaurant_No))
+)
+
+#converting dcGMatrix to realRatingMatrix for applyting recommenderlab
+u_mx <- as(useful_mx,"realRatingMatrix")
+
+#setting itemlabels
+colnames(u_mx) <- paste("R", 1:65432, sep = "")
+
+#setting userlabels
+rownames(u_mx) <- paste("U", 1:63081, sep = "")
+
+
+#view the matrix
+getRatingMatrix(u_mx)[1:10,1:5]
+```
+
+**Funny Matrix**
+```{r}
+#build the user-item matrix based on funny comments
+funny_mx <- sparseMatrix(
+  i =  rating$user_No, 
+  j =  rating$restaurant_No, 
+  x = rating$funny, 
+  dimnames = list(levels(rating$user_No), levels(rating$restaurant_No))
+)
+
+#converting dcGMatrix to realRatingMatrix for applyting recommenderlab
+f_mx <- as(funny_mx,"realRatingMatrix")
+
+#setting itemlabels
+colnames(f_mx) <- paste("R", 1:65432, sep = "")
+
+#setting userlabels
+rownames(f_mx) <- paste("U", 1:63081, sep = "")
+
+#view the matrix
+getRatingMatrix(f_mx)[1:10,1:5]
+```
+
+
+**Cool Matrix**
+```{r}
+#build the user-item matrix based on funny comments
+cool_mx <- sparseMatrix(
+  i =  rating$user_No, 
+  j =  rating$restaurant_No, 
+  x = rating$cool, 
+  dimnames = list(levels(rating$user_No), levels(rating$restaurant_No))
+)
+
+#converting dcGMatrix to realRatingMatrix for applyting recommenderlab
+c_mx <- as(cool_mx,"realRatingMatrix")
+
+#setting itemlabels
+colnames(c_mx) <- paste("R", 1:65432, sep = "")
+
+#setting userlabels
+rownames(c_mx) <- paste("U", 1:63081, sep = "")
+
+#view the matrix
+getRatingMatrix(c_mx)[1:10,1:5]
+```
+
+
+```{r}
+# statistic of useful, funny and cool comments data
+summary(u_mx@data@x[])
+summary(f_mx@data@x[])
+summary(c_mx@data@x[])
+```
+
+From the summary, we can see the values of useful, funny or cool represent how many people felt the reviews for the restaurant are useful, funny or cool. The higher the value, the more popular of these restaurants are. We can consider these number as ratings from different aspects. Because the scale of these three factors is different, as you can see from the max value was 500, 287, and 234, we will converted them to binary values. Then the ratings for useful, funny or cool will be combined with the primary ratings to build the new recommender models.
+
+```{r}
+# the frequeny of restaurant's rating is useful 
+useful_tb <- as.data.frame(table(rating$useful))
+useful_tb$Var1 <- as.numeric(as.character(useful_tb$Var1))
+# how many pepople believed that the review was useful at a threshold at 100 restaurants having the same amount of "useful" notes
+u_threshold <- useful_tb[useful_tb$Freq > 50,]
+
+# the frequeny of restaurant's rating is useful 
+funny_tb <- as.data.frame(table(rating$funny))
+funny_tb$Var1 <- as.numeric(as.character(funny_tb$Var1))
+# how many pepople believed that the review was useful at a threshold at 100 restaurants having the same amount of "useful" notes
+f_threshold <- funny_tb[funny_tb$Freq > 50,]
+
+# the frequeny of restaurant's rating is useful 
+cool_tb <- as.data.frame(table(rating$useful))
+cool_tb$Var1 <- as.numeric(as.character(cool_tb$Var1))
+# how many pepople believed that the review was useful at a threshold at 100 restaurants having the same amount of "useful" notes
+c_threshold <- cool_tb[cool_tb$Freq > 50,]
+
+mx_b <-mx_r
+# convert the basic rating matrix to binary matrix
+mx_b@data@x [mx_b@data@x < mean(mx_b@data@x[])]<- 1
+mx_b@data@x [mx_b@data@x > mean(mx_b@data@x[])]<- 0
+
+# convert the useful matrix to binary matrix
+u_mx@data@x [u_mx@data@x < max(u_threshold$Var1)]<- 1
+u_mx@data@x [u_mx@data@x > max(u_threshold$Var1)]<- 0
+
+# convert the funny rating matrix to binary matrix  
+f_mx@data@x [f_mx@data@x < max(f_threshold$Var1)]<- 1
+f_mx@data@x [f_mx@data@x > max(f_threshold$Var1)]<- 0
+
+# convert the cool rating matrix to binary matrix
+c_mx@data@x [c_mx@data@x < max(c_threshold$Var1)]<- 1
+c_mx@data@x [c_mx@data@x > max(c_threshold$Var1)]<- 0
+
+
+#chose the users and restaurants matching the constrained user-item matrix which users rated the restaurant more than 20 times and restaurants received more than 50 reviews.
+u_mx_fit <- u_mx[,c(colnames(mx_r))]
+u_mx_fit <- u_mx_fit[row.names(u_mx_fit) %in% c(rownames(mx_r)),]
+
+f_mx_fit <- f_mx[,c(colnames(mx_r))]
+f_mx_fit <- f_mx_fit[row.names(f_mx_fit) %in% c(rownames(mx_r)),]
+
+c_mx_fit <- c_mx[,c(colnames(mx_r))]
+c_mx_fit <- c_mx_fit[row.names(c_mx_fit) %in% c(rownames(mx_r)),]
+
+# combine primary ratings with useful rating by element-wise multiplication  
+r0_r1 <- mx_b@data * u_mx_fit@data
+
+# combine primary ratings with funny rating by element-wise multiplication  
+r0_r1_r2 <- r0_r1 * f_mx_fit@data
+
+# combine primary ratings with cool rating by element-wise multiplication  
+r0_r1_r2_r3 <- r0_r1_r2 * c_mx_fit@data
+
+```
+
+#### 5.2.2 Building the Recommendation Systems Based on Multi_criteria Rating
+
+There are 7 ways to intergrate useful, funny, cool, and primary ratings: primary+useful,primary+funny, primary+cool, primary+useful+funny, primary+useful+cool, primary+cool+funny, primary+useful+funny+cool. We will use primary+useful,primary+useful+funny, and primary+useful+funny+cool to build the recommendation models.
+
+** Primary + Useful**
+```{r}
+combine_1 <- as(r0_r1,"realRatingMatrix")
+
+# creating the evaluation scheme, separate the data into train set and test set
+set.seed(2)
+(c1_e <- evaluationScheme(combine_1[1:1200], method = "split",train = 0.8, given = 5, goodRating = 3, k=5))
+
+# Creating a user-based collaborative filtering) using the training data.
+(c1_ubcf <- Recommender(getData(c1_e, "train"), method ="UBCF", parameter = list(method = "cosine", normalize = "Z-score", nn=25)))
+
+# release memory
+gc()
+
+# evaluation  
+c1_results <- evaluate(c1_e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20))
+avg(results)
+
+# making predictions on ratings
+(c1_p_rating <- predict(c1_ubcf, getData(c1_e, "known"), type="ratings",n=10))
+# show predicted ratings
+as(c1_p_rating, "matrix")[1:10,1:7]
+# RMSE
+(error <- data.frame(calcPredictionAccuracy(c1_p_rating, getData(c1_e, "unknown"))))
+
+# evaluation  
+#(It took long time to run evaluate results of the command is put here)
+#results <- evaluate(e, method="UBCF", type = "topNList", n=c(1,3,5,10,15,20))
+#UBCF run fold/sample [model time/prediction time]
+	 #1  [0.16sec/398.42sec] 
+	 #2  [0.17sec/393.06sec] 
+	 #3  [0.27sec/391.93sec] 
+	 #4  [0.09sec/393.77sec] 
+	 #5  [0.16sec/395.01sec] 
+# making predictions on topNList
+(c1_p_topN <- predict(c1_ubcf, combine_1[1201],type="topNList",n=10))
+# show predicted top10 restaurants
+(c1_rec <- as(c1_p_topN, "list"))
+```
+
+**Primary + Useful + Funny** 
+
+```{r}
+combine_2 <- as(r0_r1_r2,"realRatingMatrix")
+
+# creating the evaluation scheme, separate the data into train set and test set
+set.seed(3)
+(c2_e <- evaluationScheme(combine_2[1:1200], method = "split",train = 0.8, given = 5, goodRating = 3, k=5))
+
+# Creating a user-based collaborative filtering) using the training data.
+(c2_ubcf <- Recommender(getData(c2_e, "train"), method ="UBCF", parameter = list(method = "cosine", normalize = "Z-score", nn=25)))
+
+# release memory
+gc()
+
+# evaluation  
+c2_results <- evaluate(c2_e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20))
+avg(results)
+
+# making predictions on ratings
+(c2_p_rating <- predict(c2_ubcf, getData(c2_e, "known"), type="ratings",n=10))
+# show predicted ratings
+as(c2_p_rating, "matrix")[1:10,1:7]
+# RMSE
+(error <- data.frame(calcPredictionAccuracy(c2_p_rating, getData(c2_e, "unknown"))))
+
+# evaluation  
+#(It took long time to run evaluate results of the command is put here)
+#results <- evaluate(e, method="UBCF", type = "topNList", n=c(1,3,5,10,15,20))
+#UBCF run fold/sample [model time/prediction time]
+	 #1  [0.16sec/398.42sec] 
+	 #2  [0.17sec/393.06sec] 
+	 #3  [0.27sec/391.93sec] 
+	 #4  [0.09sec/393.77sec] 
+	 #5  [0.16sec/395.01sec] 
+# making predictions on topNList
+(c2_p_topN <- predict(c2_ubcf, combine_2[1201],type="topNList",n=10))
+# show predicted top10 restaurants
+(c2_rec <- as(c2_p_topN, "list"))
+```
+
+**Primary + Useful + Funny + Cool**
+
+```{r}
+combine_3 <- as(r0_r1_r2_r3,"realRatingMatrix")
+
+# creating the evaluation scheme, separate the data into train set and test set
+set.seed(4)
+(c3_e <- evaluationScheme(combine_3[1:1200], method = "split",train = 0.8, given = 5, goodRating = 3, k=5))
+
+# Creating a user-based collaborative filtering) using the training data.
+(c3_ubcf <- Recommender(getData(c3_e, "train"), method ="UBCF", parameter = list(method = "cosine", normalize = "Z-score", nn=25)))
+
+# release memory
+gc()
+
+# evaluation  
+c3_results <- evaluate(c3_e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20))
+avg(results)
+
+# making predictions on ratings
+(c3_p_rating <- predict(c3_ubcf, getData(c3_e, "known"), type="ratings",n=10))
+# show predicted ratings
+as(c3_p_rating, "matrix")[1:10,1:7]
+# RMSE
+(error <- data.frame(calcPredictionAccuracy(c3_p_rating, getData(c3_e, "unknown"))))
+
+# evaluation  
+#(It took long time to run evaluate results of the command is put here)
+#results <- evaluate(e, method="UBCF", type = "topNList", n=c(1,3,5,10,15,20))
+#UBCF run fold/sample [model time/prediction time]
+	 #1  [0.16sec/398.42sec] 
+	 #2  [0.17sec/393.06sec] 
+	 #3  [0.27sec/391.93sec] 
+	 #4  [0.09sec/393.77sec] 
+	 #5  [0.16sec/395.01sec] 
+# making predictions on topNList
+(c3_p_topN <- predict(c3_ubcf, combine_3[1201],type="topNList",n=10))
+# show predicted top10 restaurants
+(c3_rec <- as(c3_p_topN, "list"))
+```
+
+```{r}
+#get 50 restaurants for User 1201 from recemmender system
+(c1_p_top100 <- predict(c1_ubcf, mx_r[1201],type="topNList",n=50))
+
+# filter the restaurant for User 1201 based on location
+c1_pred_restaurant <-  data.frame(as(c1_p_top100, "list"))
+colnames(c1_pred_restaurant) <- "U1201"
+c1_pred_restaurant[] <- lapply(c1_pred_restaurant, as.character)
+c1_pred_restaurant$restaurant_id <- c1_pred_restaurant$U1201
+
+c1_pred_restaurant <- left_join(c1_pred_restaurant,idf_city, by='restaurant_id' )
+c1_pred_restaurant$city <- as.character(c1_pred_restaurant$city)
+c1_pred_restaurant$state <- as.character(c1_pred_restaurant$state)
+
+# For example, if user 1201 want to get recommendation for restaurants in Las vegas, we can find out from the top100 list
+(Lasvegas <- filter(c1_pred_restaurant,city == "Las Vegas"))
+```
+
+**Serendipity**
+
+According to reference 5, The serendipity will be measured as:$Srdp(u) =\frac{|UNEXP(u) \cap USEFUL(u))|}{N}$
+
+where USEFUL(u) denotes the useful (relevant) items for user u and N is the size of recommendation set RS(u).An unexpected set of recommendations for
+user u (UNEXP(u)) is defined as: $UNEXP(u) = RS(u) \setminus PM$
+where where PM is a set of recommendations generated by a primitive model which is assumed of low unexpectedness. RS(u) denotes the top-N recommendations generated by a recommender system for user u. When an element of RS(u)
+does not belong to PM, it is considered to be unexpected.
+
+```{r}
+U1827_predict <- data.frame(rbind('Primary' = unlist(pri_rec), 'Primary + Useful' = unlist(c1_rec), 'Primary + Useful + Funny' = unlist(c2_rec), 'Primary + Useful + Funny + Cool' = unlist(c3_rec)))
+colnames(U1827_predict) <- paste0("No.",seq(1:10))
+kable(U1827_predict)
+
+pri_rating <- predict(r_ubcf, mx_r[1201], type="ratings",n=10)
+usefulness <- as(pri_rating, "matrix")
+usefulness_df <- as.data.frame(usefulness) %>%
+	gather(restaurant_id, predicted_rating,1:length(usefulness))
+
+unexpected_1 <- setdiff(pri_rec[[1]], c1_rec[[1]])
+unexpected_ratings <- filter(usefulness_df, restaurant_id  %in% unexpected_1 ) %>%
+  filter(predicted_rating > mean(mx_r@data@x) )
+serendipity_c1 <- nrow(unexpected_ratings)/length(unlist(c1_rec))
+print(paste("serendipity for user 1827 using combiantion of primary rating and useful rating is:",serendipity_c1*100,"%"))
+```
+
+By combing primary rating and useful rating, we can get a totally different top 10 recommendations for user 1807. 
+
+```{r}
+unexpected_ratings <- left_join(unexpected_ratings,idf_city,by="restaurant_id")
+kable(unexpected_LasVegas <- filter(unexpected_ratings,city == "Las Vegas"))
+new_restaurant <- setdiff(unexpected_LasVegas$restaurant,Lasvegas$restaurant)
+print(paste("By combing primary rating and useful rating,we found",length(new_restaurant),"restaurants not recommended by the primary model by relevant:",paste(unlist(new_restaurant), collapse=','),"for user 1827."))
+```
+
+```{r}
+# topN for test data set based on primary recommendation system
+(p_topN <- predict(r_ubcf, getData(e,"unknown"),type="topNList",n=10))
+# show predicted top10 restaurants
+pri_rec <- as(p_topN, "list")
+
+# topN for test data set based on primary+useful rating
+(c1_p_topN <- predict(c1_ubcf, getData(e,"unknown"),type="topNList",n=10))
+# show predicted top10 restaurants
+c1_rec <- as(c1_p_topN, "list")
+
+serendipity_c1_df <- data.frame()
+for (i in 1:length(pri_rec)){
+  unexpected_1 <- setdiff(pri_rec[[i]], c1_rec[[i]])
+  unexpected_ratings <- filter(usefulness_df, restaurant_id %in% unexpected_1 ) %>%
+    filter(predicted_rating > mean(mx_r@data@x))
+  serendipity_c1[i] <- nrow(unexpected_ratings)/10
+  serendipity_c1_df_1 <- data.frame('user_id' = names(pri_rec[i]),'serendipity'= serendipity_c1[i])
+  serendipity_c1_df <- rbind(serendipity_c1_df,serendipity_c1_df_1)
+}
+
+datatable(serendipity_c1_df, options = list(pageLength = 5))
+
+unexpected_ratings <- filter(usefulness_df, restaurant_id  %in% unexpected_1 ) %>%
+  filter(predicted_rating > mean(mx_r@data@x) )
+```
+
+### Conlcusion and Discussion:
+
+1. One restaurant recommendation system baesd on the user_based collabarotive filtering algorithm was built with the Yelp academic data for challenge round 9.The RMSE is 1.47. 
+
+2. Restaurants recommending results could be furthered modified by the location. In the future, those information on locations (such as longitude and latitude) or the distance between restaurants, could be used to calculate the similarity.
+
+3. The recommendation system based on multi-criteria ratings genererated a totally different list of restaurants for users. It is  intriguing to see that the serendipity of the recommendation system based on multi-criteria ratings for each user was 100%. At the same time, the accuracy of the prediction was higher than only using one-criteria of rating, The RMSE reduced to 0.5. 
+
 ### Reference:
+
 1. Blanca Vargas-Govea, Gabriel González-Serna, Rafael Ponce-Medellín. Effects of relevant contextual features in the performance of a restaurant recommender system.CARS,( 2011)
+
 2. Mengqi Yu, Meng Xue, Wenjia Ouyang. Restaurants Review Star Prediction for Yelp Dataset.Conference Proceedings (2015).
+
 3. Gediminas Adomavicius, YoungOk Kwon. New Recommendation Techniques for Multi-Criteria Rating Systems. IEEE Intelligent Systems 22-3 (2017).
+
 4. Jun Zeng, Feng Li, Haiyang Liu, Junhao Wen, Sachio Hirokawa. A Restaurant Recommender System Based on User Preference and Location in Mobile Environment. Advanced Applied Informatics (IIAI-AAI), 2016 5th IIAI International Congress.
+
+5. Qiuxia Lu, Tianqi Chen, Weinan Zhang, Diyi Yang, Yong Yu.Serendipitous Personalized Ranking for Top-N Recommendation.Proceeding WI-IAT '12 Proceedings of the 2012 IEEE/WIC/ACM International Joint Conferences on Web Intelligence and Intelligent Agent Technology, Volume 01, 258-265 (2012).
+
+
 
 ```{r}
 
