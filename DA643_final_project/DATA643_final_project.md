@@ -315,8 +315,8 @@ gc()
 ```
 
     ##            used  (Mb) gc trigger  (Mb)  max used  (Mb)
-    ## Ncells  3714477 198.4   12002346 641.0  12002346 641.0
-    ## Vcells 55754921 425.4  112780893 860.5 112769645 860.4
+    ## Ncells  3714349 198.4   12002346 641.0  12002346 641.0
+    ## Vcells 55754508 425.4  112780893 860.5 112769232 860.4
 
 ``` r
 # Increasing the storage capacity
@@ -338,11 +338,11 @@ results <- evaluate(e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20))
 ```
 
     ## UBCF run fold/sample [model time/prediction time]
-    ##   1  [0.09sec/11.46sec] 
-    ##   2  [0.05sec/12.05sec] 
-    ##   3  [0.05sec/11.83sec] 
-    ##   4  [0.03sec/11.4sec] 
-    ##   5  [0.06sec/11.81sec]
+    ##   1  [0.1sec/11.53sec] 
+    ##   2  [0.05sec/11.86sec] 
+    ##   3  [0.03sec/11.55sec] 
+    ##   4  [0.04sec/11.29sec] 
+    ##   5  [0.05sec/11.72sec]
 
 ``` r
 avg(results)
@@ -440,8 +440,7 @@ pred_restaurant$state <- as.character(pred_restaurant$state)
 
 # For example, if user 1201 want to get recommendation for restaurants in Las vegas, we can find out from the top100 list
 Lasvegas <- filter(pred_restaurant,city == "Las Vegas")
-#datatable(Lasvegas, options = list(pageLength = 5))
-head(Lasvegas,n=5)
+head(Lasvegas, n=5)
 ```
 
     ##   U1201 restaurant_id restaurant_No                    restaurant
@@ -698,8 +697,8 @@ gc()
 ```
 
     ##            used  (Mb) gc trigger  (Mb)  max used  (Mb)
-    ## Ncells  3736387 199.6   12002346 641.0  12002346 641.0
-    ## Vcells 78251706 597.1  112780893 860.5 112780608 860.5
+    ## Ncells  3736254 199.6   12002346 641.0  12002346 641.0
+    ## Vcells 78251287 597.1  112780893 860.5 112780195 860.5
 
 ``` r
 # evaluation  
@@ -707,11 +706,11 @@ c1_results <- evaluate(c1_e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20
 ```
 
     ## UBCF run fold/sample [model time/prediction time]
-    ##   1  [0.03sec/11.51sec] 
-    ##   2  [0.05sec/12.41sec] 
-    ##   3  [0.05sec/11.73sec] 
-    ##   4  [0.05sec/11.72sec] 
-    ##   5  [0.05sec/12.43sec]
+    ##   1  [0.03sec/11.39sec] 
+    ##   2  [0.05sec/12.31sec] 
+    ##   3  [0.06sec/11.58sec] 
+    ##   4  [0.03sec/11.68sec] 
+    ##   5  [0.05sec/12.15sec]
 
 ``` r
 avg(results)
@@ -809,8 +808,8 @@ gc()
 ```
 
     ##            used  (Mb) gc trigger   (Mb)  max used   (Mb)
-    ## Ncells  3736770 199.6   12002346  641.0  12002346  641.0
-    ## Vcells 81954626 625.3  135417071 1033.2 135416853 1033.2
+    ## Ncells  3736637 199.6   12002346  641.0  12002346  641.0
+    ## Vcells 81954207 625.3  135417071 1033.2 135416434 1033.2
 
 ``` r
 # evaluation  
@@ -818,11 +817,11 @@ c2_results <- evaluate(c2_e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20
 ```
 
     ## UBCF run fold/sample [model time/prediction time]
-    ##   1  [0.05sec/11.61sec] 
-    ##   2  [0.04sec/11.87sec] 
-    ##   3  [0.04sec/11.63sec] 
-    ##   4  [0.04sec/11.87sec] 
-    ##   5  [0.06sec/11.92sec]
+    ##   1  [0.04sec/11.51sec] 
+    ##   2  [0.05sec/11.79sec] 
+    ##   3  [0.04sec/11.61sec] 
+    ##   4  [0.03sec/11.9sec] 
+    ##   5  [0.04sec/12.04sec]
 
 ``` r
 avg(results)
@@ -920,8 +919,8 @@ gc()
 ```
 
     ##            used  (Mb) gc trigger   (Mb)  max used   (Mb)
-    ## Ncells  3737055 199.6   12002346  641.0  12002346  641.0
-    ## Vcells 85648014 653.5  135417071 1033.2 135416854 1033.2
+    ## Ncells  3736922 199.6   12002346  641.0  12002346  641.0
+    ## Vcells 85647595 653.5  135417071 1033.2 135416826 1033.2
 
 ``` r
 # evaluation  
@@ -929,11 +928,11 @@ c3_results <- evaluate(c3_e, method="UBCF", type = "ratings", n=c(1,3,5,10,15,20
 ```
 
     ## UBCF run fold/sample [model time/prediction time]
-    ##   1  [0.03sec/11.31sec] 
-    ##   2  [0.04sec/11.53sec] 
-    ##   3  [0.06sec/11.51sec] 
-    ##   4  [0.04sec/11.74sec] 
-    ##   5  [0.05sec/11.53sec]
+    ##   1  [0.05sec/11.27sec] 
+    ##   2  [0.03sec/11.54sec] 
+    ##   3  [0.02sec/11.58sec] 
+    ##   4  [0.05sec/11.86sec] 
+    ##   5  [0.04sec/11.65sec]
 
 ``` r
 avg(results)
@@ -1124,7 +1123,7 @@ for (i in 1:length(pri_rec)){
   serendipity_c1_df <- rbind(serendipity_c1_df,serendipity_c1_df_1)
 }
 
-head(serendipity_c1_df, options = list(pageLength = 5),n=5)
+head(serendipity_c1_df, n= 5)
 ```
 
     ##   user_id serendipity
